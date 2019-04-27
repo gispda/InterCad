@@ -1,0 +1,21 @@
+﻿<UserControl x:Class="InterDesignCad.View.PanelFT"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <Grid x:Name="mainftpanel">
+        <Button Content="简化夹耳--C槽钢" HorizontalAlignment="Left" Margin="39,23,0,0" VerticalAlignment="Top" Width="222" Height="25" Click="btnJzCiron_Click"/>
+        <Button Content="简化夹耳--L型" HorizontalAlignment="Left" Margin="39,66,0,0" VerticalAlignment="Top" Width="222" Height="25"/>
+        <Button Content="主支撑--C槽钢" HorizontalAlignment="Left" Margin="39,113,0,0" VerticalAlignment="Top" Width="222" Height="25"/>
+        <Button Content="主支撑--L型" HorizontalAlignment="Left" Margin="39,160,0,0" VerticalAlignment="Top" Width="222" Height="25"/>
+        <Button Content="辅助支撑--L型" HorizontalAlignment="Left" Margin="39,210,0,0" VerticalAlignment="Top" Width="222" Height="25" RenderTransformOrigin="0.456,7.856"/>
+        <Button Content="辅助支撑--C槽钢" HorizontalAlignment="Left" Margin="39,258,0,0" VerticalAlignment="Top" Width="222" Height="25"/>
+        <Grid x:Name="jzcpanel" HorizontalAlignment="Left" Height="300" Margin="301,-1,-409,0" VerticalAlignment="Top" Width="408" Visibility="Hidden">
+            <Button Content="Button" HorizontalAlignment="Left" Margin="66,28,0,0" VerticalAlignment="Top" Width="75"/>
+
+        </Grid>
+
+    </Grid>
+</UserControl>
