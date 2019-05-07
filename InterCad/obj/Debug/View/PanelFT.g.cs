@@ -67,7 +67,7 @@ namespace InterDesignCad.View {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/HdCad;component/view/panelft.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/InterCad;component/view/panelft.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\View\PanelFT.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

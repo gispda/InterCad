@@ -101,7 +101,7 @@ namespace InterDesignCad.View {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/HdCad;component/view/pluginwindow.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/InterCad;component/view/pluginwindow.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\View\PluginWindow.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

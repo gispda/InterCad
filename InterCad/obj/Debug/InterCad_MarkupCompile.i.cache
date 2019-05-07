@@ -1,4 +1,4 @@
-﻿HdCad
+﻿InterCad
 
 
 library
@@ -12,9 +12,9 @@ DEBUG;TRACE
 
 2261999554
 
-17264984858
+18-436414712
 28756927521
 View\PanelFT.xaml;View\PluginWindow.xaml;
 
-False
+True
 
