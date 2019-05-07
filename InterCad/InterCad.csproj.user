@@ -3,7 +3,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <StartAction>Program</StartAction>
     <StartProgram>C:\Program Files\Autodesk\AutoCAD 2014\acad.exe</StartProgram>
-    <StartArguments>/nologo /b "F:\project\HdCad\start.scr"</StartArguments>
+    <StartArguments>/nologo /b "F:\project\InterCad\start.scr"</StartArguments>
     <StartWorkingDirectory>C:\Program Files\Autodesk\AutoCAD 2014\</StartWorkingDirectory>
   </PropertyGroup>
 </Project>
