@@ -20,3 +20,4 @@ F:\project\InterCad\InterCad\obj\Debug\InterDesignCad.Dialog.FT.FtLgScForm.resou
 F:\project\InterCad\InterCad\obj\Debug\InterCad.csproj.GenerateResource.Cache
 F:\project\InterCad\InterCad\obj\Debug\HdCad.dll
 F:\project\InterCad\InterCad\obj\Debug\HdCad.pdb
+F:\project\InterCad\InterCad\bin\Debug\log4net.config
