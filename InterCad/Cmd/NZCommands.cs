@@ -12,6 +12,8 @@ namespace InterDesignCad.Cmd
 {
     public class NZCommands
     {
+
+
         //Use viewport boundary as selecting window/polygon
         //to find entities in modelspace visible in each viewport
         [CommandMethod("VpSelect")]

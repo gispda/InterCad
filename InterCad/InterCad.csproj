@@ -80,7 +80,7 @@
   <ItemGroup>
     <Compile Include="Cmd\CmdDataFT.cs" />
     <Compile Include="Cmd\FTCommand.cs" />
-    <Compile Include="Cmd\MyCommands.cs" />
+    <Compile Include="Cmd\NZCommands.cs" />
     <Compile Include="Cmd\SubJeCIFTCommand.cs" />
     <Compile Include="Control\FtJeCIronCtlView.cs" />
     <Compile Include="Dialog\FT\FtJeCIronForm.cs">
