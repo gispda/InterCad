@@ -51,6 +51,122 @@ namespace InterDesignCad.Cmd
             else
                 return acedTrans_x64(point, fromRb, toRb, disp, result);
         }
+
+        [CommandMethod("mlinedim", CommandFlags.NoTileMode)]
+
+        static public void MlineDim()
+        {
+
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+
+            // pick some point in PS
+
+            PromptPointResult res = ed.GetPoint("选择第一根线端点。");
+
+            if (res.Status == PromptStatus.OK)
+            {
+
+                // now to make sure this works for all viewpoints
+
+                ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
+
+                ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
+
+                ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
+
+                double[] retPoint = new double[] { 0, 0, 0 };
+
+
+
+                // translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
+
+                // the DCS of the current model space viewport RTSHORT=2
+
+                acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
+
+                //translate the DCS of the current model space viewport RTSHORT=2
+
+                //to the WCS RTSHORT=0
+
+                acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
+
+
+
+                ObjectId btId = ed.Document.Database.BlockTableId;
+
+                // create a new DBPoint and add it to model space to show where we picked
+
+                using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
+
+                using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
+
+                using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
+
+                                as BlockTableRecord)
+
+                    ms.AppendEntity(pnt);
+
+            }
+
+        }
+
+        [CommandMethod("ps2ms", CommandFlags.NoTileMode)]
+
+        static public void ps2ms()
+        {
+
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+
+            // pick some point in PS
+
+            PromptPointResult res = ed.GetPoint("Pick Model Space Point");
+
+            if (res.Status == PromptStatus.OK)
+            {
+
+                // now to make sure this works for all viewpoints
+
+                ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
+
+                ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
+
+                ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
+
+                double[] retPoint = new double[] { 0, 0, 0 };
+
+
+
+                // translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
+
+                // the DCS of the current model space viewport RTSHORT=2
+
+                acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
+
+                //translate the DCS of the current model space viewport RTSHORT=2
+
+                //to the WCS RTSHORT=0
+
+                acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
+
+
+
+                ObjectId btId = ed.Document.Database.BlockTableId;
+
+                // create a new DBPoint and add it to model space to show where we picked
+
+                using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
+
+                using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
+
+                using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
+
+                                as BlockTableRecord)
+
+                    ms.AppendEntity(pnt);
+
+            }
+
+        }
         // select all entities in Model Space using Paper Space viewport
         // by Fenton Webb, DevTech, Autodesk, 02/Apr/2012
         [CommandMethod("selectMsFromPs", CommandFlags.NoTileMode)]
