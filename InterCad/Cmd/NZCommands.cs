@@ -15,7 +15,7 @@ using InterDesignCad.Util;
 
 namespace InterDesignCad.Cmd
 {
-    public class NZCommands
+    public class NZCommands : IExtensionApplication
     {
 
 
@@ -60,53 +60,64 @@ namespace InterDesignCad.Cmd
             Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
 
             // pick some point in PS
-
+            Point3d p1,p2;
             PromptPointResult res = ed.GetPoint("选择第一根线端点。");
 
-            if (res.Status == PromptStatus.OK)
-            {
+            if (res.Status != PromptStatus.OK)
+            return;
+
+            
+            PromptPointResult resend = ed.GetPoint("选择第二根线端点。");
+            if (resend.Status != PromptStatus.OK)
+                return;
+            p1 = res.Value;
+            p2 = resend.Value;
+
+
+            Log4NetHelper.WriteInfoLog("第一个点" + p1.ToString() + "\n");
+            Log4NetHelper.WriteInfoLog("第二个点" + p2.ToString() + "\n");
 
                 // now to make sure this works for all viewpoints
 
-                ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
+                //ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
 
-                ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
+                //ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
 
-                ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
+                //ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
 
-                double[] retPoint = new double[] { 0, 0, 0 };
-
-
-
-                // translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
-
-                // the DCS of the current model space viewport RTSHORT=2
-
-                acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
-
-                //translate the DCS of the current model space viewport RTSHORT=2
-
-                //to the WCS RTSHORT=0
-
-                acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
+                //double[] retPoint = new double[] { 0, 0, 0 };
 
 
 
-                ObjectId btId = ed.Document.Database.BlockTableId;
+                //// translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
 
-                // create a new DBPoint and add it to model space to show where we picked
+                //// the DCS of the current model space viewport RTSHORT=2
 
-                using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
+                //acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
 
-                using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
+                ////translate the DCS of the current model space viewport RTSHORT=2
 
-                using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
+                ////to the WCS RTSHORT=0
 
-                                as BlockTableRecord)
+                //acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
 
-                    ms.AppendEntity(pnt);
 
-            }
+
+                //ObjectId btId = ed.Document.Database.BlockTableId;
+
+                //// create a new DBPoint and add it to model space to show where we picked
+
+                //using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
+
+                //using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
+
+                //using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
+
+                //                as BlockTableRecord)
+
+                //    ms.AppendEntity(pnt);
+
+            
 
         }
 
@@ -461,6 +472,17 @@ namespace InterDesignCad.Cmd
             }
 
             return inside;
+        }
+
+        public void Initialize()
+        {
+            Log4NetHelper.InitLog4Net("log4net.config");
+            
+        }
+
+        public void Terminate()
+        {
+        
         }
     }
 }
