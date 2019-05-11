@@ -15,6 +15,259 @@ using InterDesignCad.Util;
 
 namespace InterDesignCad.Cmd
 {
+
+    static class Extension
+    {
+#if AUTOCAD_NEWER_THAN_2012
+    const String acedTransOwner = "accore.dll";
+#else
+        const String acedTransOwner = "accore.dll";
+#endif
+
+#if AUTOCAD_NEWER_THAN_2014
+    const String acedTrans_x86_Prefix = "_";
+#else
+        const String acedTrans_x86_Prefix = "";
+#endif
+
+        const String acedTransName = "acedTrans";
+
+        [DllImport(acedTransOwner, CallingConvention = CallingConvention.Cdecl,
+                EntryPoint = acedTrans_x86_Prefix + acedTransName)]
+        static extern Int32 acedTrans_x86(Double[] point, IntPtr fromRb,
+          IntPtr toRb, Int32 disp, Double[] result);
+
+        [DllImport(acedTransOwner, CallingConvention = CallingConvention.Cdecl,
+                EntryPoint = acedTransName)]
+        static extern Int32 acedTrans_x64(Double[] point, IntPtr fromRb,
+          IntPtr toRb, Int32 disp, Double[] result);
+
+        public static Int32 acedTrans(Double[] point, IntPtr fromRb, IntPtr toRb,
+          Int32 disp, Double[] result)
+        {
+            if (IntPtr.Size == 4)
+                return acedTrans_x86(point, fromRb, toRb, disp, result);
+            else
+                return acedTrans_x64(point, fromRb, toRb, disp, result);
+        }
+
+
+        //private static extern int acedTrans(
+        //    double[] point,
+        //    IntPtr fromResbuf,
+        //    IntPtr toResbuf,
+        //    int displacement,
+        //    double[] result
+        //);
+
+        public enum CoordSystem
+        {
+            WCS = 0,
+            UCS = 1,
+            DCS = 2,
+            PSDCS = 3
+        }
+
+        // Coordinates System / Coordinates System
+        public static Point3d Trans(this Point3d pt, CoordSystem from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Entity
+        public static Point3d Trans(this Point3d pt, ObjectId from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Vector
+        public static Point3d Trans(this Point3d pt, Vector3d from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Coordinates System
+        public static Point3d Trans(this Point3d pt, ObjectId from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Entity
+        public static Point3d Trans(this Point3d pt, CoordSystem from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Vector)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Coordinates System
+        public static Point3d Trans(this Point3d pt, Vector3d from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Vector
+        public static Point3d Trans(this Point3d pt, ObjectId from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Entity
+        public static Point3d Trans(this Point3d pt, Vector3d from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+    }
+
     public class NZCommands : IExtensionApplication
     {
 
@@ -52,6 +305,10 @@ namespace InterDesignCad.Cmd
                 return acedTrans_x64(point, fromRb, toRb, disp, result);
         }
 
+
+
+
+
         [CommandMethod("mlinedim", CommandFlags.NoTileMode)]
 
         static public void MlineDim()
@@ -60,13 +317,13 @@ namespace InterDesignCad.Cmd
             Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
 
             // pick some point in PS
-            Point3d p1,p2;
+            Point3d p1, p2;
             PromptPointResult res = ed.GetPoint("选择第一根线端点。");
 
             if (res.Status != PromptStatus.OK)
-            return;
+                return;
 
-            
+
             PromptPointResult resend = ed.GetPoint("选择第二根线端点。");
             if (resend.Status != PromptStatus.OK)
                 return;
@@ -77,47 +334,128 @@ namespace InterDesignCad.Cmd
             Log4NetHelper.WriteInfoLog("第一个点" + p1.ToString() + "\n");
             Log4NetHelper.WriteInfoLog("第二个点" + p2.ToString() + "\n");
 
-                // now to make sure this works for all viewpoints
+            PromptSelectionResult acSSPrompt;
+           
 
-                //ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
+            Point3d mp1 = Extension.Trans(p1, Extension.CoordSystem.PSDCS, Extension.CoordSystem.DCS);
 
-                //ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
+            Point3d mp2 = Extension.Trans(p2, Extension.CoordSystem.PSDCS, Extension.CoordSystem.DCS);
 
-                //ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
-
-                //double[] retPoint = new double[] { 0, 0, 0 };
-
-
-
-                //// translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
-
-                //// the DCS of the current model space viewport RTSHORT=2
-
-                //acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
-
-                ////translate the DCS of the current model space viewport RTSHORT=2
-
-                ////to the WCS RTSHORT=0
-
-                //acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
+            Log4NetHelper.WriteInfoLog("转换后第一个点" + mp1.ToString() + "\n");
+            Log4NetHelper.WriteInfoLog("转换后第二个点" + mp2.ToString() + "\n");
 
 
+            //acSSPrompt = ed.SelectCrossingWindow(mp1,
+             //                                          mp2);
+            ed.SwitchToModelSpace();
 
-                //ObjectId btId = ed.Document.Database.BlockTableId;
-
-                //// create a new DBPoint and add it to model space to show where we picked
-
-                //using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
-
-                //using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
-
-                //using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
-
-                //                as BlockTableRecord)
-
-                //    ms.AppendEntity(pnt);
-
+            acSSPrompt = ed.SelectCrossingWindow(mp1, mp2);
             
+
+            //ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
+
+            //ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
+
+            //ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
+
+            //double[] retPoint = new double[2] { 0, 0, 0 };
+
+
+
+            ////// translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
+
+            ////// the DCS of the current model space viewport RTSHORT=2
+
+            //acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
+
+            ////translate the DCS of the current model space viewport RTSHORT=2
+
+            ////to the WCS RTSHORT=0
+
+            //acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
+
+
+
+
+
+
+
+            if (acSSPrompt.Status != PromptStatus.OK)
+            {
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                return;
+            }
+
+
+            SelectionSet acSSet = acSSPrompt.Value;
+
+            Application.ShowAlertDialog("Number of objects selected: " +
+                                        acSSet.Count.ToString());
+
+
+
+
+
+
+
+
+
+
+            ed.SwitchToPaperSpace();
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                // Open the Block table for read
+                BlockTable acBlkTbl;
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                // Open the Block table record Model space for write
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                // Create the rotated dimension
+        using (RotatedDimension acRotDim = new RotatedDimension())
+        {
+            acRotDim.XLine1Point = p1;
+            acRotDim.XLine2Point = p2;
+            acRotDim.Rotation = 0;
+            acRotDim.DimLinePoint = new Point3d(0, 5, 0);
+            acRotDim.DimensionStyle = acCurDb.Dimstyle;
+
+            // Add the new object to Model space and the transaction
+            acBlkTblRec.AppendEntity(acRotDim);
+            acTrans.AddNewlyCreatedDBObject(acRotDim, true);
+        }
+
+        // Commit the changes and dispose of the transaction
+        acTrans.Commit();
+
+            }
+            // now to make sure this works for all viewpoints
+
+          
+
+
+
+            //ObjectId btId = ed.Document.Database.BlockTableId;
+
+            //// create a new DBPoint and add it to model space to show where we picked
+
+            //using (DBPoint pnt = new DBPoint(new Point3d(retPoint[0], retPoint[1], retPoint[2])))
+
+            //using (BlockTable bt = btId.Open(OpenMode.ForRead) as BlockTable)
+
+            //using (BlockTableRecord ms = bt[BlockTableRecord.ModelSpace].Open(OpenMode.ForWrite)
+
+            //                as BlockTableRecord)
+
+            //    ms.AppendEntity(pnt);
+
+
 
         }
 
@@ -477,12 +815,12 @@ namespace InterDesignCad.Cmd
         public void Initialize()
         {
             Log4NetHelper.InitLog4Net("log4net.config");
-            
+
         }
 
         public void Terminate()
         {
-        
+
         }
     }
 }
