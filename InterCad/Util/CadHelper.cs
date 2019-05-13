@@ -21,6 +21,31 @@ namespace InterDesignCad.Util
 
         public class CadHelper
         {
+
+            private static Dictionary<Vector3d, Point3d> dict = new Dictionary<Vector3d, Point3d>();
+
+
+            public static void ClearDict()
+            {
+                dict.Clear();
+            }
+            public static void AddVPDict(Vector3d vc, Point3d ep)
+            {
+                if (ep != null || vc != null)
+                    dict.Add(vc, ep);
+                else
+                    Log4NetHelper.WriteErrorLog("出错了" + ep + "\n");
+
+            }
+
+            public static Point3d GetEndPoint(Vector3d svc)
+            {
+                if (dict.Count > 0)
+                    return dict[svc];
+                else
+                    return new Point3d(0, 0, 0);
+            }
+
             //Get needed Viewport information
             public static ViewportInfo[] SelectLockedViewportInfoOnLayout(
                 Document dwg, string layoutName)

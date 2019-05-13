@@ -334,8 +334,11 @@ namespace InterDesignCad.Cmd
             Log4NetHelper.WriteInfoLog("第一个点" + p1.ToString() + "\n");
             Log4NetHelper.WriteInfoLog("第二个点" + p2.ToString() + "\n");
 
+
+
+            CadHelper.ClearDict();
             PromptSelectionResult acSSPrompt;
-           
+
 
             Point3d mp1 = Extension.Trans(p1, Extension.CoordSystem.PSDCS, Extension.CoordSystem.DCS);
 
@@ -346,35 +349,12 @@ namespace InterDesignCad.Cmd
 
 
             //acSSPrompt = ed.SelectCrossingWindow(mp1,
-             //                                          mp2);
+            //                                          mp2);
             ed.SwitchToModelSpace();
+            TypedValue[] tvs = new TypedValue[] { new TypedValue((int)DxfCode.Start, "LINE") };
 
-            acSSPrompt = ed.SelectCrossingWindow(mp1, mp2);
-            
-
-            //ResultBuffer psdcs = new ResultBuffer(new TypedValue(5003, 3));
-
-            //ResultBuffer dcs = new ResultBuffer(new TypedValue(5003, 2));
-
-            //ResultBuffer wcs = new ResultBuffer(new TypedValue(5003, 0));
-
-            //double[] retPoint = new double[2] { 0, 0, 0 };
-
-
-
-            ////// translate from the DCS of Paper Space (PSDCS) RTSHORT=3 to
-
-            ////// the DCS of the current model space viewport RTSHORT=2
-
-            //acedTrans(retPoint, psdcs.UnmanagedObject, dcs.UnmanagedObject, 0, retPoint);
-
-            ////translate the DCS of the current model space viewport RTSHORT=2
-
-            ////to the WCS RTSHORT=0
-
-            //acedTrans(retPoint, dcs.UnmanagedObject, wcs.UnmanagedObject, 0, retPoint);
-
-
+            SelectionFilter sf = new SelectionFilter(tvs);
+            acSSPrompt = ed.SelectCrossingWindow(mp1, mp2, sf);
 
 
 
@@ -389,26 +369,22 @@ namespace InterDesignCad.Cmd
 
             SelectionSet acSSet = acSSPrompt.Value;
 
-            Application.ShowAlertDialog("Number of objects selected: " +
+            Log4NetHelper.WriteInfoLog("Number of objects selected: " +
                                         acSSet.Count.ToString());
-
-
-
-
-
-
-
-
-
 
             ed.SwitchToPaperSpace();
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
 
+            Vector3dCollection vcs = new Vector3dCollection();
             // Start a transaction
+            Vector3d ev, sv, sbv;
+            int pii = 0;
+
+            Point3d ep1, ep2,pp1,pp2,dp1,dp2;
+
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
-                // Open the Block table for read
                 BlockTable acBlkTbl;
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
@@ -417,27 +393,71 @@ namespace InterDesignCad.Cmd
                 BlockTableRecord acBlkTblRec;
                 acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
-                // Create the rotated dimension
-        using (RotatedDimension acRotDim = new RotatedDimension())
-        {
-            acRotDim.XLine1Point = p1;
-            acRotDim.XLine2Point = p2;
-            acRotDim.Rotation = 0;
-            acRotDim.DimLinePoint = new Point3d(0, 5, 0);
-            acRotDim.DimensionStyle = acCurDb.Dimstyle;
 
-            // Add the new object to Model space and the transaction
-            acBlkTblRec.AppendEntity(acRotDim);
-            acTrans.AddNewlyCreatedDBObject(acRotDim, true);
-        }
+                foreach (ObjectId lid in acSSet.GetObjectIds())
+                {
+                    var ln = acTrans.GetObject(lid, OpenMode.ForRead) as Line;
 
-        // Commit the changes and dispose of the transaction
-        acTrans.Commit();
+                    if (ln != null)
+                    {
 
+                        ev = new Vector3d(ln.EndPoint.X, ln.EndPoint.Y, ln.EndPoint.Z);
+                        sv = new Vector3d(ln.StartPoint.X, ln.StartPoint.Y, ln.StartPoint.Z);
+
+                        sbv = ev.Subtract(sv);
+                        CadHelper.AddVPDict(sbv, ln.EndPoint);
+                        vcs.Add(sbv);
+
+                        pii = pii + 1;
+
+                    }
+
+                }
+
+
+                if (vcs.Count >= 2)
+                {
+                    for (int i = 0; i < vcs.Count - 1; i++)
+                    {
+                        if (vcs[i].IsCodirectionalTo(vcs[i + 1]) == true)
+                        {
+
+                            ep1 = CadHelper.GetEndPoint(vcs[i]);
+                            ep2 = CadHelper.GetEndPoint(vcs[i + 1]);
+
+                            dp1 = Extension.Trans(ep1, Extension.CoordSystem.WCS, Extension.CoordSystem.DCS);
+                            pp1 = Extension.Trans(dp1, Extension.CoordSystem.DCS, Extension.CoordSystem.PSDCS);
+                            dp2 = Extension.Trans(ep2, Extension.CoordSystem.WCS, Extension.CoordSystem.DCS);
+                            pp2 = Extension.Trans(dp2, Extension.CoordSystem.DCS, Extension.CoordSystem.PSDCS);
+
+                            // Create the rotated dimension
+                            using (RotatedDimension acRotDim = new RotatedDimension())
+                            {
+                                acRotDim.XLine1Point = pp1;
+                                acRotDim.XLine2Point = pp2;
+                                acRotDim.Rotation = 0;
+                                acRotDim.DimLinePoint = new Point3d(0, 5, 0);
+                                acRotDim.DimensionStyle = acCurDb.Dimstyle;
+
+                                // Add the new object to Model space and the transaction
+                                acBlkTblRec.AppendEntity(acRotDim);
+                                acTrans.AddNewlyCreatedDBObject(acRotDim, true);
+                            }
+
+                            // Commit the changes and dispose of the transaction
+
+
+                        }
+                    }
+                }
+                acTrans.Commit();
             }
+
+            // Start a transaction
+           
             // now to make sure this works for all viewpoints
 
-          
+
 
 
 

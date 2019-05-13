@@ -20,3 +20,4 @@ F:\project\InterCad\InterCad\obj\Debug\InterCad_MarkupCompile.lref
 F:\project\InterCad\InterCad\obj\Debug\InterCad.g.resources
 F:\project\InterCad\InterCad\obj\Debug\InterCad.dll
 F:\project\InterCad\InterCad\obj\Debug\InterCad.pdb
+F:\project\InterCad\InterCad\obj\Debug\InterCad.csprojResolveAssemblyReference.cache
