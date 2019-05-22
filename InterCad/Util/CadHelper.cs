@@ -2,11 +2,405 @@
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
+using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Collections.Generic;
- 
+using System.Runtime.InteropServices;
+
 namespace InterDesignCad.Util
-{       
+{
+    internal static class SelectThroughViewport
+    {
+        public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, string prompt)
+        {
+            return acadEditor.GetNestedEntityThroughViewport(new PromptNestedEntityThroughViewportOptions(prompt));
+        }
+
+        public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options)
+        {
+            Document acadDocument = acadEditor.Document;
+            Database acadDatabase = acadDocument.Database;
+            LayoutManager layoutManager = LayoutManager.Current;
+
+            SelectThroughViewportJig stvpJig = new SelectThroughViewportJig(options);
+
+            PromptResult pointResult = acadEditor.Drag(stvpJig);
+
+            if (pointResult.Status == PromptStatus.OK)
+            {
+                Point3d pickedPoint = stvpJig.Result.Value;
+
+                PromptNestedEntityOptions pneOpions = options.Options;
+                pneOpions.NonInteractivePickPoint = pickedPoint;
+                pneOpions.UseNonInteractivePickPoint = true;
+
+                PromptNestedEntityResult pickResult = acadEditor.GetNestedEntity(pneOpions);
+
+                if ((pickResult.Status == PromptStatus.OK) ||
+                    (acadDatabase.TileMode) ||
+                    (acadDatabase.PaperSpaceVportId != acadEditor.CurrentViewportObjectId))
+                {
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+                else
+                {
+                    SelectionFilter vportFilter = new SelectionFilter(new TypedValue[] { new TypedValue(0, "VIEWPORT"),
+                                                                                                 new TypedValue(-4, "!="),
+                                                                                                 new TypedValue(69, 1),
+                                                                                                 new TypedValue(410, layoutManager.CurrentLayout) });
+
+                    PromptSelectionResult vportResult = acadEditor.SelectAll(vportFilter);
+
+                    if (vportResult.Status == PromptStatus.OK)
+                    {
+                        using (Transaction trans = acadDocument.TransactionManager.StartTransaction())
+                        {
+                            foreach (ObjectId objectId in vportResult.Value.GetObjectIds())
+                            {
+                                Viewport viewport = (Viewport)trans.GetObject(objectId, OpenMode.ForRead, false, false);
+
+                                if (viewport.ContainsPoint(pickedPoint))
+                                {
+                                    pneOpions.NonInteractivePickPoint = TranslatePointPsToMs(viewport, pickedPoint);
+                                    pneOpions.UseNonInteractivePickPoint = true;
+
+                                    acadEditor.SwitchToModelSpace();
+
+                                    Application.SetSystemVariable("CVPORT", viewport.Number);
+
+                                    PromptNestedEntityResult pneResult = acadEditor.GetNestedEntity(pneOpions);
+
+                                    acadEditor.SwitchToPaperSpace();
+
+                                    if (pneResult.Status == PromptStatus.OK)
+                                    {
+                                        return new PromptNestedEntityThroughViewportResult(pneResult, objectId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+            }
+            else
+            {
+                return new PromptNestedEntityThroughViewportResult(pointResult);
+            }
+        }
+
+        private static Point3d TranslatePointPsToMs(Viewport viewport, Point3d psPoint)
+        {
+            Point3d msPoint = psPoint.TransformBy(Matrix3d.Displacement(new Vector3d(viewport.CenterPoint.X, viewport.CenterPoint.Y, viewport.CenterPoint.Z).Negate()))
+                                     .TransformBy(Matrix3d.Scaling(1.0 / viewport.CustomScale, Point3d.Origin))
+                                     .TransformBy(Matrix3d.Rotation(-viewport.TwistAngle, Vector3d.ZAxis, Point3d.Origin))
+                                     .TransformBy(Matrix3d.Displacement(new Vector3d(viewport.ViewCenter.X, viewport.ViewCenter.Y, 0.0)))
+                                     .TransformBy(Matrix3d.PlaneToWorld(new Plane(viewport.ViewTarget, viewport.ViewDirection)));
+
+
+
+            return msPoint;
+        }
+
+        private static bool ContainsPoint(this Viewport viewport, Point3d point)
+        {
+            // TODO: Need to consider viewport clipping boundary
+
+            return (((viewport.CenterPoint.X - (viewport.Width / 2.0)) <= point.X) &&
+                    ((viewport.CenterPoint.X + (viewport.Width / 2.0)) >= point.X) &&
+                    ((viewport.CenterPoint.Y - (viewport.Height / 2.0)) <= point.Y) &&
+                    ((viewport.CenterPoint.Y + (viewport.Height / 2.0)) >= point.Y) &&
+                    (viewport.CenterPoint.Z == point.Z));
+        }
+
+        private class SelectThroughViewportJig : DrawJig
+        {
+            private PromptNestedEntityThroughViewportOptions options;
+
+            public SelectThroughViewportJig(PromptNestedEntityThroughViewportOptions options)
+            {
+                this.options = options;
+            }
+
+            public PromptPointResult Result { get; private set; }
+
+            protected override SamplerStatus Sampler(JigPrompts prompts)
+            {
+                JigPromptPointOptions jigOptions = new JigPromptPointOptions(options.Message);
+                jigOptions.Cursor = CursorType.EntitySelect;
+
+                Result = prompts.AcquirePoint(jigOptions);
+
+                if (Result.Status == PromptStatus.OK)
+                {
+                    return SamplerStatus.OK;
+                }
+                else if (Result.Status == PromptStatus.Cancel)
+                {
+                    return SamplerStatus.OK;
+                }
+
+                return SamplerStatus.NoChange;
+            }
+
+            protected override bool WorldDraw(Autodesk.AutoCAD.GraphicsInterface.WorldDraw draw)
+            {
+                return true;
+            }
+        }
+    }
+    static class Extension
+    {
+#if AUTOCAD_NEWER_THAN_2012
+    const String acedTransOwner = "accore.dll";
+#else
+        const String acedTransOwner = "accore.dll";
+#endif
+
+#if AUTOCAD_NEWER_THAN_2014
+    const String acedTrans_x86_Prefix = "_";
+#else
+        const String acedTrans_x86_Prefix = "";
+#endif
+
+        const String acedTransName = "acedTrans";
+
+        [DllImport(acedTransOwner, CallingConvention = CallingConvention.Cdecl,
+                EntryPoint = acedTrans_x86_Prefix + acedTransName)]
+        static extern Int32 acedTrans_x86(Double[] point, IntPtr fromRb,
+          IntPtr toRb, Int32 disp, Double[] result);
+
+        [DllImport(acedTransOwner, CallingConvention = CallingConvention.Cdecl,
+                EntryPoint = acedTransName)]
+        static extern Int32 acedTrans_x64(Double[] point, IntPtr fromRb,
+          IntPtr toRb, Int32 disp, Double[] result);
+
+        public static Int32 acedTrans(Double[] point, IntPtr fromRb, IntPtr toRb,
+          Int32 disp, Double[] result)
+        {
+            if (IntPtr.Size == 4)
+                return acedTrans_x86(point, fromRb, toRb, disp, result);
+            else
+                return acedTrans_x64(point, fromRb, toRb, disp, result);
+        }
+
+
+        //private static extern int acedTrans(
+        //    double[] point,
+        //    IntPtr fromResbuf,
+        //    IntPtr toResbuf,
+        //    int displacement,
+        //    double[] result
+        //);
+
+        public enum CoordSystem
+        {
+            WCS = 0,
+            UCS = 1,
+            DCS = 2,
+            PSDCS = 3
+        }
+
+        // Coordinates System / Coordinates System
+        public static Point3d Trans(this Point3d pt, CoordSystem from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Entity
+        public static Point3d Trans(this Point3d pt, ObjectId from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Vector
+        public static Point3d Trans(this Point3d pt, Vector3d from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Coordinates System
+        public static Point3d Trans(this Point3d pt, ObjectId from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Entity
+        public static Point3d Trans(this Point3d pt, CoordSystem from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Vector)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Coordinates System / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, CoordSystem from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5003, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Coordinates System
+        public static Point3d Trans(this Point3d pt, Vector3d from, CoordSystem to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Coordinates System (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, CoordSystem to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5003, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Vector
+        public static Point3d Trans(this Point3d pt, ObjectId from, Vector3d to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Entity / Vector (displacement)
+        public static Point3d Trans(this Point3d pt, ObjectId from, Vector3d to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5006, from)).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5009, new Point3d(to.X, to.Y, to.Z))).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Entity
+        public static Point3d Trans(this Point3d pt, Vector3d from, ObjectId to)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                0,
+                result);
+            return new Point3d(result);
+        }
+        // Vector / Entity (displacement)
+        public static Point3d Trans(this Point3d pt, Vector3d from, ObjectId to, int disp)
+        {
+            double[] result = new double[] { 0, 0, 0 };
+            acedTrans(pt.ToArray(),
+                new ResultBuffer(new TypedValue(5009, new Point3d(from.X, from.Y, from.Z))).UnmanagedObject,
+                new ResultBuffer(new TypedValue(5006, to)).UnmanagedObject,
+                disp,
+                result);
+            return new Point3d(result);
+        }
+    }
         public class ViewportInfo
         {
             public ObjectId ViewportId { set; get; }

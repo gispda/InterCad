@@ -95,6 +95,8 @@
     <Compile Include="Model\Model.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Util\CadHelper.cs" />
+    <Compile Include="Util\PromptNestedEntityThroughViewportResult.cs" />
+    <Compile Include="Util\PromptNestedEntityThroughViewportOptions.cs" />
     <Compile Include="Util\Log4NetHelper.cs" />
     <Compile Include="Util\SysUtil.cs" />
     <Compile Include="ViewModel\ViewModel.cs" />
