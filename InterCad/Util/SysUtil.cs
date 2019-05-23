@@ -10,7 +10,7 @@ namespace InterDesignCad.Util
         {
             string sPath = Environment.GetEnvironmentVariable("INTERCAD");
             if (sPath == null || sPath == "")
-                sPath = "F:\\project\\InterCad\\InterCad\\Util\\";
+                sPath = "F:\\project\\InterCad\\InterCad\\";
             return sPath;
         }
     }

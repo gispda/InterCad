@@ -702,7 +702,7 @@ namespace InterDesignCad.Cmd
 
         public void Initialize()
         {
-            Log4NetHelper.InitLog4Net("log4net.config");
+            Log4NetHelper.InitLog4Net(SysUtil.getCfgPath()+"log4net.config");
 
         }
 

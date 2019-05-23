@@ -17,7 +17,7 @@ using System;
 
 namespace InterDesignCad.Cmd
 {
-    public class SubJeCIFTCommand : IExtensionApplication
+    public class SubJeCIFTCommand
     {
         //private static PaletteSet _ps = null;
         private static CmdDataFT cmddata = null;
