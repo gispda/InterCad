@@ -95,9 +95,9 @@ namespace InterDesignCad.Cmd
             Editor ed = acDoc.Editor;
 
             var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            Viewport vports;
 
-
-            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt);
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
 
 
             if (res.Status != PromptStatus.OK)
@@ -108,6 +108,7 @@ namespace InterDesignCad.Cmd
             }
 
             Entity ent;
+            ViewportInfo vpinfo=null;
             using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
             {
 
@@ -115,11 +116,31 @@ namespace InterDesignCad.Cmd
                 ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
                 Log4NetHelper.WriteInfoLog("实体的类型是："+ent.Visible+"\n");
                 ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
-                ent.ColorIndex = 1;
-                ent.Visible = false;
+             //   ent.ColorIndex = 1;
+               // ent.Visible = false;
 
-                trx.Commit();
+
+
+                vpinfo = CadHelper.GetViewInfo(vports, trx);
+
+                if (vpinfo != null)
+                {
+                    Log4NetHelper.WriteInfoLog("找到视口.");
+                    ed.SwitchToModelSpace();
+                    ObjectId[] ents = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace,trx);
+                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
+                        ents.Length,
+                        ents.Length > 1 ? "ies" : "y",
+                        vpinfo.ViewportId.ToString());
+
+                   
+                }
+                ed.SwitchToPaperSpace();
+               // trx.Commit();
             }
+            
+            
             
             ////Select a Viewport
             //var vpId = SelectEntity(
@@ -626,6 +647,32 @@ namespace InterDesignCad.Cmd
                 //Restored to previous view (view before zoomming)
                 tran.Abort();
             }
+
+            return ids;
+        }
+
+        private static ObjectId[] SelectEntitisInModelSpaceByViewport(
+        Document dwg, Point3dCollection boundaryInModelSpace, Transaction tran)
+        {
+            ObjectId[] ids = null;
+
+            
+            
+                //Zoom to the extents of the viewport boundary in modelspace
+                //before calling Editor.SelectXxxxx()
+               
+                ZoomToWindow(boundaryInModelSpace);
+
+                PromptSelectionResult res =
+                    dwg.Editor.SelectCrossingPolygon(boundaryInModelSpace);
+                if (res.Status == PromptStatus.OK)
+                {
+                    ids = res.Value.GetObjectIds();
+                }
+
+                //Restored to previous view (view before zoomming)
+                tran.Abort();
+            
 
             return ids;
         }

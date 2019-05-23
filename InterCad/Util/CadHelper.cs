@@ -16,6 +16,83 @@ namespace InterDesignCad.Util
             return acadEditor.GetNestedEntityThroughViewport(new PromptNestedEntityThroughViewportOptions(prompt));
         }
 
+        public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options, out Viewport viewport)
+        {
+            Document acadDocument = acadEditor.Document;
+            Database acadDatabase = acadDocument.Database;
+            LayoutManager layoutManager = LayoutManager.Current;
+
+            SelectThroughViewportJig stvpJig = new SelectThroughViewportJig(options);
+
+            PromptResult pointResult = acadEditor.Drag(stvpJig);
+
+            if (pointResult.Status == PromptStatus.OK)
+            {
+                Point3d pickedPoint = stvpJig.Result.Value;
+
+                PromptNestedEntityOptions pneOpions = options.Options;
+                pneOpions.NonInteractivePickPoint = pickedPoint;
+                pneOpions.UseNonInteractivePickPoint = true;
+
+                PromptNestedEntityResult pickResult = acadEditor.GetNestedEntity(pneOpions);
+
+                if ((pickResult.Status == PromptStatus.OK) ||
+                    (acadDatabase.TileMode) ||
+                    (acadDatabase.PaperSpaceVportId != acadEditor.CurrentViewportObjectId))
+                {
+
+                    viewport = null;
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+                else
+                {
+                    SelectionFilter vportFilter = new SelectionFilter(new TypedValue[] { new TypedValue(0, "VIEWPORT"),
+                                                                                                 new TypedValue(-4, "!="),
+                                                                                                 new TypedValue(69, 1),
+                                                                                                 new TypedValue(410, layoutManager.CurrentLayout) });
+
+                    PromptSelectionResult vportResult = acadEditor.SelectAll(vportFilter);
+
+                    if (vportResult.Status == PromptStatus.OK)
+                    {
+                        using (Transaction trans = acadDocument.TransactionManager.StartTransaction())
+                        {
+                            foreach (ObjectId objectId in vportResult.Value.GetObjectIds())
+                            {
+                                viewport = (Viewport)trans.GetObject(objectId, OpenMode.ForRead, false, false);
+
+                                if (viewport.ContainsPoint(pickedPoint))
+                                {
+                                    pneOpions.NonInteractivePickPoint = TranslatePointPsToMs(viewport, pickedPoint);
+                                    pneOpions.UseNonInteractivePickPoint = true;
+
+                                    acadEditor.SwitchToModelSpace();
+
+                                    Application.SetSystemVariable("CVPORT", viewport.Number);
+
+                                    PromptNestedEntityResult pneResult = acadEditor.GetNestedEntity(pneOpions);
+
+                                    acadEditor.SwitchToPaperSpace();
+
+                                    if (pneResult.Status == PromptStatus.OK)
+                                    {
+                                        return new PromptNestedEntityThroughViewportResult(pneResult, objectId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    viewport = null;
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+            }
+            else
+            {
+                viewport = null;
+                return new PromptNestedEntityThroughViewportResult(pointResult);
+            }
+        }
+
         public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options)
         {
             Document acadDocument = acadEditor.Document;
@@ -431,7 +508,38 @@ namespace InterDesignCad.Util
                     Log4NetHelper.WriteErrorLog("出错了" + ep + "\n");
 
             }
+            public static ViewportInfo GetViewInfo(Viewport vport, Transaction tran)
+            {
 
+                ViewportInfo vpInfo = null;
+                Log4NetHelper.WriteInfoLog("视口的数字" + vport.Number + "\n");
+                if (vport.Number != 1 && vport.Locked)
+                {
+                    vpInfo = new ViewportInfo();
+                    vpInfo.ViewportId = vport.ObjectId;
+                    vpInfo.NonRectClipId = vport.NonRectClipEntityId;
+                    if (!vport.NonRectClipEntityId.IsNull &&
+                        vport.NonRectClipOn)
+                    {
+                        Polyline2d pl = (Polyline2d)tran.GetObject(
+                            vport.NonRectClipEntityId, OpenMode.ForRead);
+                        vpInfo.BoundaryInPaperSpace =
+                            GetNonRectClipBoundary(pl, tran);
+                    }
+                    else
+                    {
+                        vpInfo.BoundaryInPaperSpace =
+                            GetViewportBoundary(vport);
+                    }
+
+                    Matrix3d mt = PaperToModel(vport);
+                    vpInfo.BoundaryInModelSpace =
+                        TransformPaperSpacePointToModelSpace(
+                        vpInfo.BoundaryInPaperSpace, mt);
+
+                }
+                return vpInfo;
+            }
             public static Point3d GetEndPoint(Vector3d svc)
             {
                 if (dict.Count > 0)
