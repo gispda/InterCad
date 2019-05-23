@@ -89,34 +89,63 @@ namespace InterDesignCad.Cmd
 
         static public void NZ_qr()
         {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
 
-            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            Editor ed = acDoc.Editor;
 
-            //Select a Viewport
-            var vpId = SelectEntity(
-                ed,
-                typeof(Viewport),
-                "\nSelect a viewport:");
-            if (vpId.IsNull)
+            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+
+
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt);
+
+
+            if (res.Status != PromptStatus.OK)
             {
-                ed.WriteMessage("\n*Cancel*");
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                ed.WriteMessage("没有选择到实体.\n\t");
                 return;
             }
 
-
-            //Select a polyline in the same layout
-            var polyId = SelectEntity(
-                ed,
-                typeof(Polyline),
-                "\nSelect a polyline in the same layout as the selected viewport:");
-            if (polyId.IsNull)
+            Entity ent;
+            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
             {
-                HighlightEntity(vpId, false);
-                ed.WriteMessage("\n*Cancel*");
-                return;
-            }
 
-            HighlightEntity(vpId, false);
+                ObjectId lid = res.ObjectId;
+                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
+                Log4NetHelper.WriteInfoLog("实体的类型是："+ent.Visible+"\n");
+                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                ent.ColorIndex = 1;
+                ent.Visible = false;
+
+                trx.Commit();
+            }
+            
+            ////Select a Viewport
+            //var vpId = SelectEntity(
+            //    ed,
+            //    typeof(Viewport),
+            //    "\nSelect a viewport:");
+            //if (vpId.IsNull)
+            //{
+            //    ed.WriteMessage("\n*Cancel*");
+            //    return;
+            //}
+
+
+            ////Select a polyline in the same layout
+            //var polyId = SelectEntity(
+            //    ed,
+            //    typeof(Polyline),
+            //    "\nSelect a polyline in the same layout as the selected viewport:");
+            //if (polyId.IsNull)
+            //{
+            //    HighlightEntity(vpId, false);
+            //    ed.WriteMessage("\n*Cancel*");
+            //    return;
+            //}
+
+            //HighlightEntity(vpId, false);
 
 
 
