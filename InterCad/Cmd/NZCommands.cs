@@ -107,8 +107,9 @@ namespace InterDesignCad.Cmd
                 return;
             }
 
-            Entity ent;
+            Entity ent,vent;
             ViewportInfo vpinfo=null;
+            ObjectId[] vpEnts=null;
             using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
             {
 
@@ -116,8 +117,94 @@ namespace InterDesignCad.Cmd
                 ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
                 Log4NetHelper.WriteInfoLog("实体的类型是："+ent.Visible+"\n");
                 ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
-             //   ent.ColorIndex = 1;
+               // ent.ColorIndex = 1;
                // ent.Visible = false;
+
+               
+
+                vpinfo = CadHelper.GetViewInfo(vports, trx);
+
+                if (vpinfo != null)
+                {
+                    Log4NetHelper.WriteInfoLog("找到视口.");
+                    ed.SwitchToModelSpace();
+                    vpEnts = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace,trx);
+                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
+                        vpEnts.Length,
+                        vpEnts.Length > 1 ? "ies" : "y",
+                        vpinfo.ViewportId.ToString());
+
+                   
+                }
+                ed.SwitchToPaperSpace();
+
+
+                if (vpEnts != null && vpEnts.Length>0)
+                { 
+                  foreach(ObjectId vpentid in vpEnts)
+                  {
+                      vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                      if (vent.Layer.Equals(ent.Layer))
+                      {
+                          vent.Visible = true;
+                      }
+                      else
+                          vent.Visible = false;
+                  
+                  }
+                }
+                trx.Commit();
+               
+
+
+
+
+            }
+            
+            
+            
+            
+
+
+
+        }
+
+
+        [CommandMethod("qt", CommandFlags.NoTileMode)]
+
+        static public void NZ_qt()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            Editor ed = acDoc.Editor;
+
+            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            Viewport vports;
+
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
+
+
+            if (res.Status != PromptStatus.OK)
+            {
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                ed.WriteMessage("没有选择到实体.\n\t");
+                return;
+            }
+
+            Entity ent, vent;
+            ViewportInfo vpinfo = null;
+            ObjectId[] vpEnts = null;
+            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                ObjectId lid = res.ObjectId;
+                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
+                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
+                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                ent.ColorIndex = 1;
+                // ent.Visible = false;
 
 
 
@@ -127,47 +214,126 @@ namespace InterDesignCad.Cmd
                 {
                     Log4NetHelper.WriteInfoLog("找到视口.");
                     ed.SwitchToModelSpace();
-                    ObjectId[] ents = SelectEntitisInModelSpaceByViewport(
-                       acDoc, vpinfo.BoundaryInModelSpace,trx);
+                    vpEnts = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace, trx);
                     ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
-                        ents.Length,
-                        ents.Length > 1 ? "ies" : "y",
+                        vpEnts.Length,
+                        vpEnts.Length > 1 ? "ies" : "y",
                         vpinfo.ViewportId.ToString());
 
-                   
+
                 }
                 ed.SwitchToPaperSpace();
-               // trx.Commit();
+
+
+                if (vpEnts != null && vpEnts.Length > 0)
+                {
+                    foreach (ObjectId vpentid in vpEnts)
+                    {
+                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                        if (vent.Layer.Equals(ent.Layer))
+                        {
+                            vent.Visible = true;
+                        }
+                        //else
+                        //    vent.Visible = false;
+
+                    }
+                }
+                trx.Commit();
+
+
+
+
+
             }
+
+
+
+           
+
+
+
+        }
+
+        [CommandMethod("qy", CommandFlags.NoTileMode)]
+
+        static public void NZ_qy()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            Editor ed = acDoc.Editor;
+
+            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            Viewport vports;
+
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
+
+
+            if (res.Status != PromptStatus.OK)
+            {
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                ed.WriteMessage("没有选择到实体.\n\t");
+                return;
+            }
+
+            Entity ent, vent;
+            ViewportInfo vpinfo = null;
+            ObjectId[] vpEnts = null;
+            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                ObjectId lid = res.ObjectId;
+                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
+                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
+                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                //ent.ColorIndex = 1;
+                // ent.Visible = false;
+
+
+
+                vpinfo = CadHelper.GetViewInfo(vports, trx);
+
+                if (vpinfo != null)
+                {
+                    Log4NetHelper.WriteInfoLog("找到视口.");
+                    ed.SwitchToModelSpace();
+                    vpEnts = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace, trx);
+                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
+                        vpEnts.Length,
+                        vpEnts.Length > 1 ? "ies" : "y",
+                        vpinfo.ViewportId.ToString());
+
+
+                }
+                ed.SwitchToPaperSpace();
+
+
+                if (vpEnts != null && vpEnts.Length > 0)
+                {
+                    foreach (ObjectId vpentid in vpEnts)
+                    {
+                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                        if (vent.ColorIndex==ent.ColorIndex)
+                        {
+                            vent.Visible = true;
+                        }
+
+                    }
+                }
+                trx.Commit();
+
+
+
+
+
+            }
+
+
+
             
-            
-            
-            ////Select a Viewport
-            //var vpId = SelectEntity(
-            //    ed,
-            //    typeof(Viewport),
-            //    "\nSelect a viewport:");
-            //if (vpId.IsNull)
-            //{
-            //    ed.WriteMessage("\n*Cancel*");
-            //    return;
-            //}
-
-
-            ////Select a polyline in the same layout
-            //var polyId = SelectEntity(
-            //    ed,
-            //    typeof(Polyline),
-            //    "\nSelect a polyline in the same layout as the selected viewport:");
-            //if (polyId.IsNull)
-            //{
-            //    HighlightEntity(vpId, false);
-            //    ed.WriteMessage("\n*Cancel*");
-            //    return;
-            //}
-
-            //HighlightEntity(vpId, false);
-
 
 
         }
@@ -671,7 +837,7 @@ namespace InterDesignCad.Cmd
                 }
 
                 //Restored to previous view (view before zoomming)
-                tran.Abort();
+                //tran.Abort();
             
 
             return ids;
