@@ -20,7 +20,6 @@ F:\project\InterCad\InterCad\obj\Debug\InterCad_MarkupCompile.lref
 F:\project\InterCad\InterCad\obj\Debug\InterCad.g.resources
 F:\project\InterCad\InterCad\obj\Debug\InterCad.dll
 F:\project\InterCad\InterCad\obj\Debug\InterCad.pdb
-F:\project\InterCad\InterCad\obj\Debug\InterCad.csprojResolveAssemblyReference.cache
 F:\project\InterCad\InterCad\bin\Debug\InterCad.dll.config
 F:\project\InterCad\InterCad\bin\Debug\EntityFramework.dll
 F:\project\InterCad\InterCad\bin\Debug\EntityFramework.SqlServer.dll
@@ -30,3 +29,4 @@ F:\project\InterCad\InterCad\bin\Debug\System.Data.SQLite.Linq.dll
 F:\project\InterCad\InterCad\bin\Debug\EntityFramework.xml
 F:\project\InterCad\InterCad\bin\Debug\EntityFramework.SqlServer.xml
 F:\project\InterCad\InterCad\bin\Debug\System.Data.SQLite.xml
+F:\project\InterCad\InterCad\obj\Debug\InterCad.csprojResolveAssemblyReference.cache

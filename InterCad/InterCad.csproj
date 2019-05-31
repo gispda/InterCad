@@ -106,7 +106,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Control\FtJeCIronCtlView.cs" />
-    <Compile Include="Db\DBHelper.cs" />
+    <Compile Include="Db\SqliteHelper.cs" />
     <Compile Include="Dialog\FT\FtJeCIronForm.cs">
       <SubType>Form</SubType>
     </Compile>

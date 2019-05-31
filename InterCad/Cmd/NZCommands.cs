@@ -9,6 +9,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using InterDesignCad.Util;
+using InterDesignCad.Db;
 
 [assembly: CommandClass(typeof(InterDesignCad.Cmd.NZCommands))]
 
@@ -84,7 +85,16 @@ namespace InterDesignCad.Cmd
                 trx.Commit();
             }
         }
+        [CommandMethod("nztest", CommandFlags.NoTileMode)]
 
+        static public void NZ_test()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            Editor ed = acDoc.Editor;
+            SqliteHelper.GetViewportObjects(1);
+        }
         [CommandMethod("qr", CommandFlags.NoTileMode)]
 
         static public void NZ_qr()
@@ -916,12 +926,13 @@ namespace InterDesignCad.Cmd
         public void Initialize()
         {
             Log4NetHelper.InitLog4Net(SysUtil.getCfgPath()+"log4net.config");
+            //SqliteHelper.CreateConnection();
 
         }
 
         public void Terminate()
         {
-
+          
         }
     }
 }
