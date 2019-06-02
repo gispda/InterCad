@@ -10,6 +10,8 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using InterDesignCad.Util;
 using InterDesignCad.Db;
+using CadObjId = Autodesk.AutoCAD.DatabaseServices.ObjectId;
+using CadObjIdCollection = Autodesk.AutoCAD.DatabaseServices.ObjectIdCollection;
 
 [assembly: CommandClass(typeof(InterDesignCad.Cmd.NZCommands))]
 
@@ -93,11 +95,22 @@ namespace InterDesignCad.Cmd
             Database acCurDb = acDoc.Database;
 
             Editor ed = acDoc.Editor;
+           // SqliteHelper.GetViewportObjects(1);
+            //CadObjIdCollection idcls = new CadObjIdCollection();
+            //CadObjId id1 = new CadObjId((IntPtr)10);
+            //CadObjId id2 = new CadObjId((IntPtr)11);
+
+            //idcls.Add(id1);
+            //idcls.Add(id2);
+            //CadObjId[] idls = new CadObjId[2];
+            //idcls.CopyTo(idls, 0);
+            //SqliteHelper.SaveViewPortEntityIds(1, idls);
             SqliteHelper.GetViewportObjects(1);
+
         }
         [CommandMethod("qr", CommandFlags.NoTileMode)]
 
-        static public void NZ_qr()
+        public void NZ_qr()
         {
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
@@ -144,6 +157,9 @@ namespace InterDesignCad.Cmd
                         vpEnts.Length,
                         vpEnts.Length > 1 ? "ies" : "y",
                         vpinfo.ViewportId.ToString());
+                    // SqliteHelper.SaveViewPortEntityIds((long)(vpinfo.ViewportId.OldId), vpEnts);
+                    if(CadHelper.IsMemData(vpinfo.ViewportId))
+                    CadHelper.AddOneViewPortEntityIds(vpinfo.ViewportId, vpEnts);
 
                    
                 }
@@ -224,8 +240,16 @@ namespace InterDesignCad.Cmd
                 {
                     Log4NetHelper.WriteInfoLog("找到视口.");
                     ed.SwitchToModelSpace();
-                    vpEnts = SelectEntitisInModelSpaceByViewport(
-                       acDoc, vpinfo.BoundaryInModelSpace, trx);
+
+                    if (CadHelper.IsMemData(vpinfo.ViewportId))
+                        vpEnts = CadHelper.GetViewPortEntityIds(vpinfo.ViewportId);
+                    else
+                    {
+                        vpEnts = SelectEntitisInModelSpaceByViewport(
+                          acDoc, vpinfo.BoundaryInModelSpace, trx);
+
+                        CadHelper.AddOneViewPortEntityIds(vpinfo.ViewportId, vpEnts);
+                    }
                     ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
                         vpEnts.Length,
                         vpEnts.Length > 1 ? "ies" : "y",
@@ -241,10 +265,10 @@ namespace InterDesignCad.Cmd
                     foreach (ObjectId vpentid in vpEnts)
                     {
                         vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
-                        if (vent.Layer.Equals(ent.Layer))
-                        {
+                       // if (vent.Layer.Equals(ent.Layer))
+                       // {
                             vent.Visible = true;
-                        }
+                       // }
                         //else
                         //    vent.Visible = false;
 

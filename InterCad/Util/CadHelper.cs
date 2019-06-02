@@ -6,6 +6,9 @@ using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using CadObjId = Autodesk.AutoCAD.DatabaseServices.ObjectId;
+using CadObjIdCollection = Autodesk.AutoCAD.DatabaseServices.ObjectIdCollection;
+using System.Collections.Concurrent;
 
 namespace InterDesignCad.Util
 {
@@ -478,240 +481,260 @@ namespace InterDesignCad.Util
             return new Point3d(result);
         }
     }
-        public class ViewportInfo
+    public class ViewportInfo
+    {
+        public ObjectId ViewportId { set; get; }
+        public ObjectId NonRectClipId { set; get; }
+        public Point3dCollection BoundaryInPaperSpace { set; get; }
+        public Point3dCollection BoundaryInModelSpace { set; get; }
+    }
+
+    //Class to hold Viewport information, obtained
+    //in single Transaction
+
+
+    public class CadHelper
+    {
+
+        private static Dictionary<Vector3d, Point3d> dict = new Dictionary<Vector3d, Point3d>();
+
+        private static ConcurrentDictionary<ObjectId, CadObjId[]> penmap = new ConcurrentDictionary<CadObjId, CadObjId[]>();
+
+
+        public static void AddOneViewPortEntityIds(CadObjId vportnum, CadObjId[] pentityls)
         {
-            public ObjectId ViewportId { set; get; }
-            public ObjectId NonRectClipId { set; get; }
-            public Point3dCollection BoundaryInPaperSpace { set; get; }
-            public Point3dCollection BoundaryInModelSpace { set; get; }
+            penmap.TryAdd(vportnum, pentityls);
+            
+           
         }
-  
-        //Class to hold Viewport information, obtained
-        //in single Transaction
-
-
-        public class CadHelper
+        public static CadObjId[] GetViewPortEntityIds(CadObjId vportnum)
         {
 
-            private static Dictionary<Vector3d, Point3d> dict = new Dictionary<Vector3d, Point3d>();
+            return penmap[vportnum];
+        }
 
+        public static bool IsMemData(CadObjId vportnum)
+        {
 
-            public static void ClearDict()
+            return penmap.ContainsKey(vportnum);
+        }
+
+        public static void ClearDict()
+        {
+            dict.Clear();
+        }
+        public static void AddVPDict(Vector3d vc, Point3d ep)
+        {
+            if (ep != null || vc != null)
+                dict.Add(vc, ep);
+            else
+                Log4NetHelper.WriteErrorLog("出错了" + ep + "\n");
+
+        }
+        public static ViewportInfo GetViewInfo(Viewport vport, Transaction tran)
+        {
+
+            ViewportInfo vpInfo = null;
+            Log4NetHelper.WriteInfoLog("视口的数字" + vport.Number + "\n");
+            if (vport.Number != 1 && vport.Locked)
             {
-                dict.Clear();
-            }
-            public static void AddVPDict(Vector3d vc, Point3d ep)
-            {
-                if (ep != null || vc != null)
-                    dict.Add(vc, ep);
-                else
-                    Log4NetHelper.WriteErrorLog("出错了" + ep + "\n");
-
-            }
-            public static ViewportInfo GetViewInfo(Viewport vport, Transaction tran)
-            {
-
-                ViewportInfo vpInfo = null;
-                Log4NetHelper.WriteInfoLog("视口的数字" + vport.Number + "\n");
-                if (vport.Number != 1 && vport.Locked)
+                vpInfo = new ViewportInfo();
+                vpInfo.ViewportId = vport.ObjectId;
+                vpInfo.NonRectClipId = vport.NonRectClipEntityId;
+                if (!vport.NonRectClipEntityId.IsNull &&
+                    vport.NonRectClipOn)
                 {
-                    vpInfo = new ViewportInfo();
-                    vpInfo.ViewportId = vport.ObjectId;
-                    vpInfo.NonRectClipId = vport.NonRectClipEntityId;
-                    if (!vport.NonRectClipEntityId.IsNull &&
-                        vport.NonRectClipOn)
-                    {
-                        Polyline2d pl = (Polyline2d)tran.GetObject(
-                            vport.NonRectClipEntityId, OpenMode.ForRead);
-                        vpInfo.BoundaryInPaperSpace =
-                            GetNonRectClipBoundary(pl, tran);
-                    }
-                    else
-                    {
-                        vpInfo.BoundaryInPaperSpace =
-                            GetViewportBoundary(vport);
-                    }
-
-                    Matrix3d mt = PaperToModel(vport);
-                    vpInfo.BoundaryInModelSpace =
-                        TransformPaperSpacePointToModelSpace(
-                        vpInfo.BoundaryInPaperSpace, mt);
-
+                    Polyline2d pl = (Polyline2d)tran.GetObject(
+                        vport.NonRectClipEntityId, OpenMode.ForRead);
+                    vpInfo.BoundaryInPaperSpace =
+                        GetNonRectClipBoundary(pl, tran);
                 }
-                return vpInfo;
-            }
-            public static Point3d GetEndPoint(Vector3d svc)
-            {
-                if (dict.Count > 0)
-                    return dict[svc];
                 else
-                    return new Point3d(0, 0, 0);
-            }
+                {
+                    vpInfo.BoundaryInPaperSpace =
+                        GetViewportBoundary(vport);
+                }
 
-            //Get needed Viewport information
-            public static ViewportInfo[] SelectLockedViewportInfoOnLayout(
-                Document dwg, string layoutName)
-            {
-                List<ViewportInfo> lst = new List<ViewportInfo>();
-                TypedValue[] vals = new TypedValue[]{
+                Matrix3d mt = PaperToModel(vport);
+                vpInfo.BoundaryInModelSpace =
+                    TransformPaperSpacePointToModelSpace(
+                    vpInfo.BoundaryInPaperSpace, mt);
+
+            }
+            return vpInfo;
+        }
+        public static Point3d GetEndPoint(Vector3d svc)
+        {
+            if (dict.Count > 0)
+                return dict[svc];
+            else
+                return new Point3d(0, 0, 0);
+        }
+
+        //Get needed Viewport information
+        public static ViewportInfo[] SelectLockedViewportInfoOnLayout(
+            Document dwg, string layoutName)
+        {
+            List<ViewportInfo> lst = new List<ViewportInfo>();
+            TypedValue[] vals = new TypedValue[]{
                     new TypedValue((int)DxfCode.Start, "VIEWPORT"),
                     new TypedValue((int)DxfCode.LayoutName,layoutName)
                 };
 
-                PromptSelectionResult res =
-                    dwg.Editor.SelectAll(new SelectionFilter(vals));
-                if (res.Status == PromptStatus.OK)
+            PromptSelectionResult res =
+                dwg.Editor.SelectAll(new SelectionFilter(vals));
+            if (res.Status == PromptStatus.OK)
+            {
+                using (Transaction tran =
+                    dwg.TransactionManager.StartTransaction())
                 {
-                    using (Transaction tran =
-                        dwg.TransactionManager.StartTransaction())
+                    foreach (ObjectId id in res.Value.GetObjectIds())
                     {
-                        foreach (ObjectId id in res.Value.GetObjectIds())
+                        Viewport vport = (Viewport)tran.GetObject(
+                            id, OpenMode.ForRead);
+                        if (vport.Number != 1 && vport.Locked)
                         {
-                            Viewport vport = (Viewport)tran.GetObject(
-                                id, OpenMode.ForRead);
-                            if (vport.Number != 1 && vport.Locked)
+                            ViewportInfo vpInfo = new ViewportInfo();
+                            vpInfo.ViewportId = id;
+                            vpInfo.NonRectClipId = vport.NonRectClipEntityId;
+                            if (!vport.NonRectClipEntityId.IsNull &&
+                                vport.NonRectClipOn)
                             {
-                                ViewportInfo vpInfo = new ViewportInfo();
-                                vpInfo.ViewportId = id;
-                                vpInfo.NonRectClipId = vport.NonRectClipEntityId;
-                                if (!vport.NonRectClipEntityId.IsNull &&
-                                    vport.NonRectClipOn)
-                                {
-                                    Polyline2d pl = (Polyline2d)tran.GetObject(
-                                        vport.NonRectClipEntityId, OpenMode.ForRead);
-                                    vpInfo.BoundaryInPaperSpace =
-                                        GetNonRectClipBoundary(pl, tran);
-                                }
-                                else
-                                {
-                                    vpInfo.BoundaryInPaperSpace =
-                                        GetViewportBoundary(vport);
-                                }
-
-                                Matrix3d mt = PaperToModel(vport);
-                                vpInfo.BoundaryInModelSpace =
-                                    TransformPaperSpacePointToModelSpace(
-                                    vpInfo.BoundaryInPaperSpace, mt);
-
-                                lst.Add(vpInfo);
+                                Polyline2d pl = (Polyline2d)tran.GetObject(
+                                    vport.NonRectClipEntityId, OpenMode.ForRead);
+                                vpInfo.BoundaryInPaperSpace =
+                                    GetNonRectClipBoundary(pl, tran);
                             }
+                            else
+                            {
+                                vpInfo.BoundaryInPaperSpace =
+                                    GetViewportBoundary(vport);
+                            }
+
+                            Matrix3d mt = PaperToModel(vport);
+                            vpInfo.BoundaryInModelSpace =
+                                TransformPaperSpacePointToModelSpace(
+                                vpInfo.BoundaryInPaperSpace, mt);
+
+                            lst.Add(vpInfo);
                         }
-
-                        tran.Commit();
                     }
-                }
 
-                return lst.ToArray();
+                    tran.Commit();
+                }
             }
 
-            private static Point3dCollection GetViewportBoundary(Viewport vport)
+            return lst.ToArray();
+        }
+
+        private static Point3dCollection GetViewportBoundary(Viewport vport)
+        {
+            Point3dCollection points = new Point3dCollection();
+
+            Extents3d ext = vport.GeometricExtents;
+            points.Add(new Point3d(ext.MinPoint.X, ext.MinPoint.Y, 0.0));
+            points.Add(new Point3d(ext.MinPoint.X, ext.MaxPoint.Y, 0.0));
+            points.Add(new Point3d(ext.MaxPoint.X, ext.MaxPoint.Y, 0.0));
+            points.Add(new Point3d(ext.MaxPoint.X, ext.MinPoint.Y, 0.0));
+
+            return points;
+        }
+
+        private static Point3dCollection GetNonRectClipBoundary(
+            Polyline2d polyline, Transaction tran)
+        {
+            Point3dCollection points = new Point3dCollection();
+
+            foreach (ObjectId vxId in polyline)
             {
-                Point3dCollection points = new Point3dCollection();
-
-                Extents3d ext = vport.GeometricExtents;
-                points.Add(new Point3d(ext.MinPoint.X, ext.MinPoint.Y, 0.0));
-                points.Add(new Point3d(ext.MinPoint.X, ext.MaxPoint.Y, 0.0));
-                points.Add(new Point3d(ext.MaxPoint.X, ext.MaxPoint.Y, 0.0));
-                points.Add(new Point3d(ext.MaxPoint.X, ext.MinPoint.Y, 0.0));
-
-                return points;
+                Vertex2d vx = (Vertex2d)tran.GetObject(vxId, OpenMode.ForRead);
+                points.Add(polyline.VertexPosition(vx));
             }
 
-            private static Point3dCollection GetNonRectClipBoundary(
-                Polyline2d polyline, Transaction tran)
+            return points;
+        }
+
+        private static Point3dCollection TransformPaperSpacePointToModelSpace(
+            Point3dCollection paperSpacePoints, Matrix3d mt)
+        {
+            Point3dCollection points = new Point3dCollection();
+
+            foreach (Point3d p in paperSpacePoints)
             {
-                Point3dCollection points = new Point3dCollection();
-
-                foreach (ObjectId vxId in polyline)
-                {
-                    Vertex2d vx = (Vertex2d)tran.GetObject(vxId, OpenMode.ForRead);
-                    points.Add(polyline.VertexPosition(vx));
-                }
-
-                return points;
+                points.Add(p.TransformBy(mt));
             }
 
-            private static Point3dCollection TransformPaperSpacePointToModelSpace(
-                Point3dCollection paperSpacePoints, Matrix3d mt)
+            return points;
+        }
+
+        #region
+        //**********************************************************************
+        //Create coordinate transform matrix
+        //between modelspace and paperspace viewport
+        //The code is borrowed from
+        //http://www.theswamp.org/index.php?topic=34590.msg398539#msg398539
+        //*********************************************************************
+        public static Matrix3d PaperToModel(Viewport vp)
+        {
+            Matrix3d mx = ModelToPaper(vp);
+            return mx.Inverse();
+        }
+
+        public static Matrix3d ModelToPaper(Viewport vp)
+        {
+            Vector3d vd = vp.ViewDirection;
+            Point3d vc = new Point3d(vp.ViewCenter.X, vp.ViewCenter.Y, 0);
+            Point3d vt = vp.ViewTarget;
+            Point3d cp = vp.CenterPoint;
+            double ta = -vp.TwistAngle;
+            double vh = vp.ViewHeight;
+            double height = vp.Height;
+            double width = vp.Width;
+            double scale = vh / height;
+            double lensLength = vp.LensLength;
+            Vector3d zaxis = vd.GetNormal();
+            Vector3d xaxis = Vector3d.ZAxis.CrossProduct(vd);
+            Vector3d yaxis;
+
+            if (!xaxis.IsZeroLength())
             {
-                Point3dCollection points = new Point3dCollection();
-
-                foreach (Point3d p in paperSpacePoints)
-                {
-                    points.Add(p.TransformBy(mt));
-                }
-
-                return points;
+                xaxis = xaxis.GetNormal();
+                yaxis = zaxis.CrossProduct(xaxis);
             }
-
-            #region
-            //**********************************************************************
-            //Create coordinate transform matrix
-            //between modelspace and paperspace viewport
-            //The code is borrowed from
-            //http://www.theswamp.org/index.php?topic=34590.msg398539#msg398539
-            //*********************************************************************
-            public static Matrix3d PaperToModel(Viewport vp)
+            else if (zaxis.Z < 0)
             {
-                Matrix3d mx = ModelToPaper(vp);
-                return mx.Inverse();
+                xaxis = Vector3d.XAxis * -1;
+                yaxis = Vector3d.YAxis;
+                zaxis = Vector3d.ZAxis * -1;
             }
-
-            public static Matrix3d ModelToPaper(Viewport vp)
+            else
             {
-                Vector3d vd = vp.ViewDirection;
-                Point3d vc = new Point3d(vp.ViewCenter.X, vp.ViewCenter.Y, 0);
-                Point3d vt = vp.ViewTarget;
-                Point3d cp = vp.CenterPoint;
-                double ta = -vp.TwistAngle;
-                double vh = vp.ViewHeight;
-                double height = vp.Height;
-                double width = vp.Width;
-                double scale = vh / height;
-                double lensLength = vp.LensLength;
-                Vector3d zaxis = vd.GetNormal();
-                Vector3d xaxis = Vector3d.ZAxis.CrossProduct(vd);
-                Vector3d yaxis;
+                xaxis = Vector3d.XAxis;
+                yaxis = Vector3d.YAxis;
+                zaxis = Vector3d.ZAxis;
+            }
+            Matrix3d pcsToDCS = Matrix3d.Displacement(Point3d.Origin - cp);
+            pcsToDCS = pcsToDCS * Matrix3d.Scaling(scale, cp);
+            Matrix3d dcsToWcs = Matrix3d.Displacement(vc - Point3d.Origin);
+            Matrix3d mxCoords = Matrix3d.AlignCoordinateSystem(
+                Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis,
+                Vector3d.ZAxis, Point3d.Origin,
+                xaxis, yaxis, zaxis);
+            dcsToWcs = mxCoords * dcsToWcs;
+            dcsToWcs = Matrix3d.Displacement(vt - Point3d.Origin) * dcsToWcs;
+            dcsToWcs = Matrix3d.Rotation(ta, zaxis, vt) * dcsToWcs;
 
-                if (!xaxis.IsZeroLength())
-                {
-                    xaxis = xaxis.GetNormal();
-                    yaxis = zaxis.CrossProduct(xaxis);
-                }
-                else if (zaxis.Z < 0)
-                {
-                    xaxis = Vector3d.XAxis * -1;
-                    yaxis = Vector3d.YAxis;
-                    zaxis = Vector3d.ZAxis * -1;
-                }
-                else
-                {
-                    xaxis = Vector3d.XAxis;
-                    yaxis = Vector3d.YAxis;
-                    zaxis = Vector3d.ZAxis;
-                }
-                Matrix3d pcsToDCS = Matrix3d.Displacement(Point3d.Origin - cp);
-                pcsToDCS = pcsToDCS * Matrix3d.Scaling(scale, cp);
-                Matrix3d dcsToWcs = Matrix3d.Displacement(vc - Point3d.Origin);
-                Matrix3d mxCoords = Matrix3d.AlignCoordinateSystem(
-                    Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis,
-                    Vector3d.ZAxis, Point3d.Origin,
-                    xaxis, yaxis, zaxis);
-                dcsToWcs = mxCoords * dcsToWcs;
-                dcsToWcs = Matrix3d.Displacement(vt - Point3d.Origin) * dcsToWcs;
-                dcsToWcs = Matrix3d.Rotation(ta, zaxis, vt) * dcsToWcs;
-
-                Matrix3d perspectiveMx = Matrix3d.Identity;
-                if (vp.PerspectiveOn)
-                {
-                    double vSize = vh;
-                    double aspectRatio = width / height;
-                    double adjustFactor = 1.0 / 42.0;
-                    double adjstLenLgth = vSize * lensLength *
-                        Math.Sqrt(1.0 + aspectRatio * aspectRatio) * adjustFactor;
-                    double iDist = vd.Length;
-                    double lensDist = iDist - adjstLenLgth;
-                    double[] dataAry = new double[]
+            Matrix3d perspectiveMx = Matrix3d.Identity;
+            if (vp.PerspectiveOn)
+            {
+                double vSize = vh;
+                double aspectRatio = width / height;
+                double adjustFactor = 1.0 / 42.0;
+                double adjstLenLgth = vSize * lensLength *
+                    Math.Sqrt(1.0 + aspectRatio * aspectRatio) * adjustFactor;
+                double iDist = vd.Length;
+                double lensDist = iDist - adjstLenLgth;
+                double[] dataAry = new double[]
                    {
                        1,0,0,0,0,1,0,0,0,0,
                        (adjstLenLgth-lensDist)/adjstLenLgth,
@@ -719,15 +742,15 @@ namespace InterDesignCad.Util
                        0,0,-1.0/adjstLenLgth,iDist/adjstLenLgth
                    };
 
-                    perspectiveMx = new Matrix3d(dataAry);
-                }
-
-                Matrix3d finalMx =
-                    pcsToDCS.Inverse() * perspectiveMx * dcsToWcs.Inverse();
-
-                return finalMx;
+                perspectiveMx = new Matrix3d(dataAry);
             }
 
-            #endregion
+            Matrix3d finalMx =
+                pcsToDCS.Inverse() * perspectiveMx * dcsToWcs.Inverse();
+
+            return finalMx;
         }
+
+        #endregion
+    }
 }
