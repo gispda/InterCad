@@ -185,6 +185,24 @@ namespace InterDesignCad.Db
                 return false;
             }
         }
+        private static bool UpdateEntityIds(long vportnumber, string penids)
+        {
+            string updateSql = "REPLACE INTO pentity (mobjectid,vportnumber) VALUES(@mobjectid,@vportnumber)";
+            Dictionary<string, object> ups = new Dictionary<string, object>();
+
+
+            ups.Add("mobjectid", penids);
+            ups.Add("vportnumber", vportnumber);
+            int count = ExecuteNonQuery(updateSql, ups);
+            if (count > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
         private static bool UpdateOneEntityId(long vportnumber, CadObjId penid)
         {
             string updateSql = "REPLACE INTO pentity (mobjectid,vportnumber) VALUES(@mobjectid,@vportnumber)";
@@ -203,6 +221,20 @@ namespace InterDesignCad.Db
                 return false;
             }
         }
+        public static void AddOrUpdateOneViewPortEntityIds(long vportnum, CadObjId[] penidls)
+        {
+            if (penidls == null)
+                return;
+            string Arraystring = penidls[0].ToString();
+
+            for (int i = 1; i < penidls.Length; i++)
+            {
+                Arraystring += "," + penidls[i].ToString();
+
+            }
+            UpdateEntityIds(vportnum, Arraystring);
+
+        }
         public static void SaveViewPortEntityIds(long vportnumber, CadObjId[] penidls)
         {
          
@@ -218,6 +250,10 @@ namespace InterDesignCad.Db
         }
         public static CadObjIdCollection GetViewportObjects(long vportnumber)
         {
+
+
+
+
             string sql = "SELECT * FROM pentity WHERE vportnumber =@vportnumber;";
             Dictionary<string, object> parameters = new Dictionary<string, object>();
             parameters.Add("vportnumber", vportnumber);
@@ -225,25 +261,59 @@ namespace InterDesignCad.Db
             DataTable dt = ExecuteQuery(sql, parameters);
             CadObjId cadobjid;
             CadObjIdCollection cadobjidls;
-            long pobjid,pid1;
+            long pobjid;
             int i = 0;
+            string arraystring;
             int pc = dt.Rows.Count;
+            string[] tokens;// = values.Split(',');
+            long[] myItems;
             if (dt.Rows.Count > 0)
             {
                 cadobjidls = new CadObjIdCollection();
 
-                foreach (DataRow dr in dt.Rows)
+                arraystring = dt.Rows[0].Field<string>("mobjectid");
+                tokens = arraystring.Split(',');
+                myItems = Array.ConvertAll<string, long>(tokens, long.Parse);
+                foreach (long lid in myItems)
                 {
-                    pobjid = dr.Field<long>("mobjectid");
-                    cadobjid = new CadObjId((IntPtr)pobjid);
+
+                    cadobjid = new CadObjId((IntPtr)lid);
                     cadobjidls.Add(cadobjid);
                 }
+
                 return cadobjidls;
-             // pobjid= dt.Rows[0].Field<long>("mobjectid");
-              ///pid1 = dt.Rows[1].Field<long>("mobjectid");
+
             }
             else
-            return null;
+                return null;
+
+
+            //string sql = "SELECT * FROM pentity WHERE vportnumber =@vportnumber;";
+            //Dictionary<string, object> parameters = new Dictionary<string, object>();
+            //parameters.Add("vportnumber", vportnumber);
+
+            //DataTable dt = ExecuteQuery(sql, parameters);
+            //CadObjId cadobjid;
+            //CadObjIdCollection cadobjidls;
+            //long pobjid,pid1;
+            //int i = 0;
+            //int pc = dt.Rows.Count;
+            //if (dt.Rows.Count > 0)
+            //{
+            //    cadobjidls = new CadObjIdCollection();
+
+            //    foreach (DataRow dr in dt.Rows)
+            //    {
+            //        pobjid = dr.Field<long>("mobjectid");
+            //        cadobjid = new CadObjId((IntPtr)pobjid);
+            //        cadobjidls.Add(cadobjid);
+            //    }
+            //    return cadobjidls;
+            // // pobjid= dt.Rows[0].Field<long>("mobjectid");
+            //  ///pid1 = dt.Rows[1].Field<long>("mobjectid");
+            //}
+            //else
+            //return null;
         }
         //public static void sql()
         //{

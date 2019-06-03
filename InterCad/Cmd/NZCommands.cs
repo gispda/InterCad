@@ -105,7 +105,7 @@ namespace InterDesignCad.Cmd
             //CadObjId[] idls = new CadObjId[2];
             //idcls.CopyTo(idls, 0);
             //SqliteHelper.SaveViewPortEntityIds(1, idls);
-            SqliteHelper.GetViewportObjects(1);
+            SqliteHelper.GetViewportObjects(8796084487680);
 
         }
         [CommandMethod("qr", CommandFlags.NoTileMode)]
@@ -158,8 +158,8 @@ namespace InterDesignCad.Cmd
                         vpEnts.Length > 1 ? "ies" : "y",
                         vpinfo.ViewportId.ToString());
                     // SqliteHelper.SaveViewPortEntityIds((long)(vpinfo.ViewportId.OldId), vpEnts);
-                    if(CadHelper.IsMemData(vpinfo.ViewportId))
-                    CadHelper.AddOneViewPortEntityIds(vpinfo.ViewportId, vpEnts);
+                   // if (CadHelper.IsMemData(vpinfo.ViewportId))
+                        SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldId), vpEnts);
 
                    
                 }
