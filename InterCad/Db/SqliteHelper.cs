@@ -225,14 +225,23 @@ namespace InterDesignCad.Db
         {
             if (penidls == null)
                 return;
-            string Arraystring = penidls[0].ToString();
+            string Arraystring = GetCadEntityidString(penidls[0]);
 
             for (int i = 1; i < penidls.Length; i++)
             {
-                Arraystring += "," + penidls[i].ToString();
+                Arraystring += "," + GetCadEntityidString(penidls[i]);
 
             }
             UpdateEntityIds(vportnum, Arraystring);
+
+        }
+        private static string GetCadEntityidString(CadObjId cadobjid)
+        {
+            if (cadobjid == null)
+                return null;
+            long enid = (long)cadobjid.OldIdPtr;
+
+            return enid.ToString();
 
         }
         public static void SaveViewPortEntityIds(long vportnumber, CadObjId[] penidls)
@@ -248,7 +257,7 @@ namespace InterDesignCad.Db
             }
            
         }
-        public static CadObjIdCollection GetViewportObjects(long vportnumber)
+        public static CadObjId[] GetViewportObjects(long vportnumber)
         {
 
 
@@ -280,8 +289,9 @@ namespace InterDesignCad.Db
                     cadobjid = new CadObjId((IntPtr)lid);
                     cadobjidls.Add(cadobjid);
                 }
-
-                return cadobjidls;
+                CadObjId[] cabids = new CadObjId[cadobjidls.Count]; 
+                cadobjidls.CopyTo(cabids,0);
+                return cabids;
 
             }
             else

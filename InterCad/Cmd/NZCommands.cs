@@ -229,7 +229,7 @@ namespace InterDesignCad.Cmd
                 ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
                 Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
                 ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
-                ent.ColorIndex = 1;
+                //ent.ColorIndex = 1;
                 // ent.Visible = false;
 
 
@@ -241,9 +241,9 @@ namespace InterDesignCad.Cmd
                     Log4NetHelper.WriteInfoLog("找到视口.");
                     ed.SwitchToModelSpace();
 
-                    if (CadHelper.IsMemData(vpinfo.ViewportId))
-                        vpEnts = CadHelper.GetViewPortEntityIds(vpinfo.ViewportId);
-                    else
+                   
+                     vpEnts = SqliteHelper.GetViewportObjects((long)(vpinfo.ViewportId.OldIdPtr));
+                    if(vpEnts==null)
                     {
                         vpEnts = SelectEntitisInModelSpaceByViewport(
                           acDoc, vpinfo.BoundaryInModelSpace, trx);
