@@ -19,7 +19,7 @@ using CadObjIdCollection = Autodesk.AutoCAD.DatabaseServices.ObjectIdCollection;
 namespace InterDesignCad.Cmd
 {
 
- 
+
 
     public class NZCommands : IExtensionApplication
     {
@@ -95,7 +95,7 @@ namespace InterDesignCad.Cmd
             Database acCurDb = acDoc.Database;
 
             Editor ed = acDoc.Editor;
-           // SqliteHelper.GetViewportObjects(1);
+            // SqliteHelper.GetViewportObjects(1);
             //CadObjIdCollection idcls = new CadObjIdCollection();
             //CadObjId id1 = new CadObjId((IntPtr)10);
             //CadObjId id2 = new CadObjId((IntPtr)11);
@@ -130,67 +130,124 @@ namespace InterDesignCad.Cmd
                 return;
             }
 
-            Entity ent,vent;
-            ViewportInfo vpinfo=null;
-            ObjectId[] vpEnts=null;
+            if (vports == null)
+            {
+                ed.WriteMessage("视口放大太小，请放大到全视口选择实体。\n");
+                return;
+            }
+
+            Entity ent, vent;
+            ViewportInfo vpinfo = null;
+            ObjectId[] vpEnts = null;
+
+
+            using (Transaction tr = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                LayerTable ltb = (LayerTable)tr.GetObject(acCurDb.LayerTableId,
+
+                                                          OpenMode.ForRead);
+
+                //create a new layout.
+
+                if (!ltb.Has("NewLayer"))
+                {
+
+                    ltb.UpgradeOpen();
+
+                    LayerTableRecord newLayer = new LayerTableRecord();
+
+                    newLayer.Name = "NewLayer";
+
+
+
+                    newLayer.LineWeight = LineWeight.LineWeight005;
+
+                    newLayer.Description = "This is new layer";
+
+
+
+                    //red color
+
+                    newLayer.Color =
+
+                            Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0);
+
+
+
+                    ltb.Add(newLayer);
+
+                    tr.AddNewlyCreatedDBObject(newLayer, true);
+
+                }
+
+
+
+                tr.Commit();
+
+                //make it as current
+
+                acCurDb.Clayer = ltb["NewLayer"];
+
+            }
             using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
             {
 
                 ObjectId lid = res.ObjectId;
                 ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
-                Log4NetHelper.WriteInfoLog("实体的类型是："+ent.Visible+"\n");
-                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
-               // ent.ColorIndex = 1;
-               // ent.Visible = false;
+                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
+                // ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                // ent.ColorIndex = 1;
+                // ent.Visible = false;
 
-               
+
 
                 vpinfo = CadHelper.GetViewInfo(vports, trx);
-
+                Log4NetHelper.WriteInfoLog("11111111111111111111111111111111\n");
                 if (vpinfo != null)
                 {
                     Log4NetHelper.WriteInfoLog("找到视口.");
                     ed.SwitchToModelSpace();
                     vpEnts = SelectEntitisInModelSpaceByViewport(
-                       acDoc, vpinfo.BoundaryInModelSpace,trx);
+                       acDoc, vpinfo.BoundaryInModelSpace, trx);
                     ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
                         vpEnts.Length,
                         vpEnts.Length > 1 ? "ies" : "y",
                         vpinfo.ViewportId.ToString());
                     // SqliteHelper.SaveViewPortEntityIds((long)(vpinfo.ViewportId.OldId), vpEnts);
-                   // if (CadHelper.IsMemData(vpinfo.ViewportId))
-                        SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldId), vpEnts);
+                    // if (CadHelper.IsMemData(vpinfo.ViewportId))
+                    SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldIdPtr), vpEnts);
 
-                   
+
                 }
                 ed.SwitchToPaperSpace();
 
 
-                if (vpEnts != null && vpEnts.Length>0)
-                { 
-                  foreach(ObjectId vpentid in vpEnts)
-                  {
-                      vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
-                      if (vent.Layer.Equals(ent.Layer))
-                      {
-                          vent.Visible = true;
-                      }
-                      else
-                          vent.Visible = false;
-                  
-                  }
+                if (vpEnts != null && vpEnts.Length > 0)
+                {
+                    foreach (ObjectId vpentid in vpEnts)
+                    {
+                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                        if (vent.Layer.Equals(ent.Layer))
+                        {
+                            vent.Visible = true;
+                        }
+                        else
+                            vent.Visible = false;
+
+                    }
                 }
                 trx.Commit();
-               
+
 
 
 
 
             }
-            
-            
-            
-            
+
+
+
+
 
 
 
@@ -219,96 +276,9 @@ namespace InterDesignCad.Cmd
                 return;
             }
 
-            Entity ent, vent;
-            ViewportInfo vpinfo = null;
-            ObjectId[] vpEnts = null;
-            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
+            if (vports == null)
             {
-
-                ObjectId lid = res.ObjectId;
-                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
-                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
-                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
-                //ent.ColorIndex = 1;
-                // ent.Visible = false;
-
-
-
-                vpinfo = CadHelper.GetViewInfo(vports, trx);
-
-                if (vpinfo != null)
-                {
-                    Log4NetHelper.WriteInfoLog("找到视口.");
-                    ed.SwitchToModelSpace();
-
-                   
-                     vpEnts = SqliteHelper.GetViewportObjects((long)(vpinfo.ViewportId.OldIdPtr));
-                    if(vpEnts==null)
-                    {
-                        vpEnts = SelectEntitisInModelSpaceByViewport(
-                          acDoc, vpinfo.BoundaryInModelSpace, trx);
-
-                        CadHelper.AddOneViewPortEntityIds(vpinfo.ViewportId, vpEnts);
-                    }
-                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
-                        vpEnts.Length,
-                        vpEnts.Length > 1 ? "ies" : "y",
-                        vpinfo.ViewportId.ToString());
-
-
-                }
-                ed.SwitchToPaperSpace();
-
-
-                if (vpEnts != null && vpEnts.Length > 0)
-                {
-                    foreach (ObjectId vpentid in vpEnts)
-                    {
-                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
-                       // if (vent.Layer.Equals(ent.Layer))
-                       // {
-                            vent.Visible = true;
-                       // }
-                        //else
-                        //    vent.Visible = false;
-
-                    }
-                }
-                trx.Commit();
-
-
-
-
-
-            }
-
-
-
-           
-
-
-
-        }
-
-        [CommandMethod("qy", CommandFlags.NoTileMode)]
-
-        static public void NZ_qy()
-        {
-            Document acDoc = Application.DocumentManager.MdiActiveDocument;
-            Database acCurDb = acDoc.Database;
-
-            Editor ed = acDoc.Editor;
-
-            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
-            Viewport vports;
-
-            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
-
-
-            if (res.Status != PromptStatus.OK)
-            {
-                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
-                ed.WriteMessage("没有选择到实体.\n\t");
+                ed.WriteMessage("视口放大太小，请放大到全视口选择实体。\n");
                 return;
             }
 
@@ -333,8 +303,17 @@ namespace InterDesignCad.Cmd
                 {
                     Log4NetHelper.WriteInfoLog("找到视口.");
                     ed.SwitchToModelSpace();
-                    vpEnts = SelectEntitisInModelSpaceByViewport(
-                       acDoc, vpinfo.BoundaryInModelSpace, trx);
+
+
+                    vpEnts = SqliteHelper.GetViewportObjects((long)(vpinfo.ViewportId.OldIdPtr));
+                    if (vpEnts == null)
+                    {
+                        vpEnts = SelectEntitisInModelSpaceByViewport(
+                          acDoc, vpinfo.BoundaryInModelSpace, trx);
+                        SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldIdPtr), vpEnts);
+
+                        //CadHelper.AddOneViewPortEntityIds(vpinfo.ViewportId, vpEnts);
+                    }
                     ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
                         vpEnts.Length,
                         vpEnts.Length > 1 ? "ies" : "y",
@@ -350,26 +329,137 @@ namespace InterDesignCad.Cmd
                     foreach (ObjectId vpentid in vpEnts)
                     {
                         vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
-                        if (vent.ColorIndex==ent.ColorIndex)
-                        {
-                            vent.Visible = true;
-                        }
+                        // if (vent.Layer.Equals(ent.Layer))
+                        // {
+                        vent.Visible = true;
+                        // }
+                        //else
+                        //    vent.Visible = false;
 
                     }
                 }
                 trx.Commit();
+            }
+        }
+
+        [CommandMethod("qy", CommandFlags.NoTileMode)]
+
+        static public void NZ_qy()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            Editor ed = acDoc.Editor;
+
+            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            Viewport vports;
+
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
 
 
+            if (res.Status != PromptStatus.OK)
+            {
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                ed.WriteMessage("没有选择到实体.\n\t");
+                return;
+            }
 
-
-
+            if (vports == null)
+            {
+                ed.WriteMessage("视口放大太小，请放大到全视口选择实体。\n");
+                return;
             }
 
 
+            using (Transaction tr = acCurDb.TransactionManager.StartTransaction())
+            {
 
-            
+                LayerTable ltb = (LayerTable)tr.GetObject(acCurDb.LayerTableId,
+
+                                                          OpenMode.ForRead);
+
+                //create a new layout.
+
+                if (!ltb.Has("NewLayer"))
+                {
+
+                    ltb.UpgradeOpen();
+
+                    LayerTableRecord newLayer = new LayerTableRecord();
+
+                    newLayer.Name = "NewLayer";
 
 
+
+                    newLayer.LineWeight = LineWeight.LineWeight005;
+
+                    newLayer.Description = "This is new layer";
+
+
+
+                    //red color
+
+                    newLayer.Color =
+
+                            Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0);
+
+
+
+                    ltb.Add(newLayer);
+                    tr.AddNewlyCreatedDBObject(newLayer, true);
+                }
+                tr.Commit();
+                //make it as current
+                acCurDb.Clayer = ltb["NewLayer"];
+            }
+
+            Entity ent, vent;
+            ViewportInfo vpinfo = null;
+            ObjectId[] vpEnts = null;
+            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
+            {
+                ObjectId lid = res.ObjectId;
+                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
+                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
+                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                //ent.ColorIndex = 1;
+                // ent.Visible = false;
+
+
+
+                vpinfo = CadHelper.GetViewInfo(vports, trx);
+
+                if (vpinfo != null)
+                {
+                    Log4NetHelper.WriteInfoLog("找到视口.");
+                    ed.SwitchToModelSpace();
+                    vpEnts = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace, trx);
+                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
+                        vpEnts.Length,
+                        vpEnts.Length > 1 ? "ies" : "y",
+                        vpinfo.ViewportId.ToString());
+                    SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldIdPtr), vpEnts);
+
+                }
+                ed.SwitchToPaperSpace();
+
+
+                if (vpEnts != null && vpEnts.Length > 0)
+                {
+                    foreach (ObjectId vpentid in vpEnts)
+                    {
+                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                        if (vent.ColorIndex == ent.ColorIndex)
+                        {
+                            vent.Visible = true;
+                        }
+                        else
+                            vent.Visible = false;
+                    }
+                }
+                trx.Commit();
+            }
         }
 
         private static void HighlightEntity(ObjectId entId, bool highlight)
@@ -470,7 +560,7 @@ namespace InterDesignCad.Cmd
             Vector3d ev, sv, sbv;
             int pii = 0;
 
-            Point3d ep1, ep2,pp1,pp2,dp1,dp2;
+            Point3d ep1, ep2, pp1, pp2, dp1, dp2;
 
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
@@ -543,7 +633,7 @@ namespace InterDesignCad.Cmd
             }
 
             // Start a transaction
-           
+
             // now to make sure this works for all viewpoints
 
 
@@ -856,23 +946,23 @@ namespace InterDesignCad.Cmd
         {
             ObjectId[] ids = null;
 
-            
-            
-                //Zoom to the extents of the viewport boundary in modelspace
-                //before calling Editor.SelectXxxxx()
-               
-                ZoomToWindow(boundaryInModelSpace);
 
-                PromptSelectionResult res =
-                    dwg.Editor.SelectCrossingPolygon(boundaryInModelSpace);
-                if (res.Status == PromptStatus.OK)
-                {
-                    ids = res.Value.GetObjectIds();
-                }
 
-                //Restored to previous view (view before zoomming)
-                //tran.Abort();
-            
+            //Zoom to the extents of the viewport boundary in modelspace
+            //before calling Editor.SelectXxxxx()
+
+            ZoomToWindow(boundaryInModelSpace);
+
+            PromptSelectionResult res =
+                dwg.Editor.SelectCrossingPolygon(boundaryInModelSpace);
+            if (res.Status == PromptStatus.OK)
+            {
+                ids = res.Value.GetObjectIds();
+            }
+
+            //Restored to previous view (view before zoomming)
+            //tran.Abort();
+
 
             return ids;
         }
@@ -949,14 +1039,14 @@ namespace InterDesignCad.Cmd
 
         public void Initialize()
         {
-            Log4NetHelper.InitLog4Net(SysUtil.getCfgPath()+"log4net.config");
+            Log4NetHelper.InitLog4Net(SysUtil.getCfgPath() + "log4net.config");
             //SqliteHelper.CreateConnection();
 
         }
 
         public void Terminate()
         {
-          
+
         }
     }
 }

@@ -30,3 +30,4 @@ F:\project\InterCad\InterCad\bin\Debug\EntityFramework.xml
 F:\project\InterCad\InterCad\bin\Debug\EntityFramework.SqlServer.xml
 F:\project\InterCad\InterCad\bin\Debug\System.Data.SQLite.xml
 F:\project\InterCad\InterCad\obj\Debug\InterCad.csprojResolveAssemblyReference.cache
+F:\project\InterCad\InterCad\bin\Debug\cad.db

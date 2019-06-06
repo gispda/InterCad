@@ -535,6 +535,12 @@ namespace InterDesignCad.Util
         {
 
             ViewportInfo vpInfo = null;
+
+            if (vport == null)
+            {
+                Log4NetHelper.WriteInfoLog("视口放大太小，请放大到全视口选择实体。\n");                
+                return null;
+            }
             Log4NetHelper.WriteInfoLog("视口的数字" + vport.Number + "\n");
             if (vport.Number != 1 && vport.Locked)
             {
