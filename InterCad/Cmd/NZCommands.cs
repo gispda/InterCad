@@ -222,18 +222,38 @@ namespace InterDesignCad.Cmd
                 }
                 ed.SwitchToPaperSpace();
 
-
+                
                 if (vpEnts != null && vpEnts.Length > 0)
                 {
+                    RXClass blockClass = RXClass.GetClass(typeof(BlockReference));
+
+
                     foreach (ObjectId vpentid in vpEnts)
                     {
-                        vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
-                        if (vent.Layer.Equals(ent.Layer))
+                        if (vpentid.ObjectClass != blockClass)
                         {
-                            vent.Visible = true;
+                            vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                            if (vent.Layer.Equals(ent.Layer))
+                            {
+                                vent.Visible = true;
+                            }
+                            else
+                                vent.Visible = false;
                         }
                         else
-                            vent.Visible = false;
+                        {
+
+                            BlockReference blk = (BlockReference)trx.GetObject(vpentid, OpenMode.ForWrite);
+                           // Log4NetHelper.WriteInfoLog("块" + att.BlockName + "\n");
+                            if (blk.Layer.Equals(ent.Layer))
+                            {
+                                blk.Visible = true;
+                            }
+                            else
+                            {
+                                blk.Visible = false;
+                            }
+                        }
 
                     }
                 }
@@ -342,9 +362,152 @@ namespace InterDesignCad.Cmd
             }
         }
 
+
         [CommandMethod("qy", CommandFlags.NoTileMode)]
 
         static public void NZ_qy()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            Editor ed = acDoc.Editor;
+
+            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            Viewport vports;
+
+            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
+
+
+            if (res.Status != PromptStatus.OK)
+            {
+                Log4NetHelper.WriteInfoLog("没有选择到实体.\n");
+                ed.WriteMessage("没有选择到实体.\n\t");
+                return;
+            }
+
+            if (vports == null)
+            {
+                ed.WriteMessage("视口放大太小，请放大到全视口选择实体。\n");
+                return;
+            }
+
+
+            using (Transaction tr = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                LayerTable ltb = (LayerTable)tr.GetObject(acCurDb.LayerTableId,
+
+                                                          OpenMode.ForRead);
+
+                //create a new layout.
+
+                if (!ltb.Has("NewLayer"))
+                {
+
+                    ltb.UpgradeOpen();
+
+                    LayerTableRecord newLayer = new LayerTableRecord();
+
+                    newLayer.Name = "NewLayer";
+
+
+
+                    newLayer.LineWeight = LineWeight.LineWeight005;
+
+                    newLayer.Description = "This is new layer";
+
+
+
+                    //red color
+
+                    newLayer.Color =
+
+                            Autodesk.AutoCAD.Colors.Color.FromRgb(255, 0, 0);
+
+
+
+                    ltb.Add(newLayer);
+                    tr.AddNewlyCreatedDBObject(newLayer, true);
+                }
+                tr.Commit();
+                //make it as current
+                acCurDb.Clayer = ltb["NewLayer"];
+            }
+
+            Entity ent, vent;
+            ViewportInfo vpinfo = null;
+            ObjectId[] vpEnts = null;
+            using (Transaction trx = acCurDb.TransactionManager.StartTransaction())
+            {
+                ObjectId lid = res.ObjectId;
+                ent = (Entity)trx.GetObject(lid, OpenMode.ForWrite);
+                Log4NetHelper.WriteInfoLog("实体的类型是：" + ent.Visible + "\n");
+                ed.WriteMessage("实体的类型是：" + ent.Visible + "\n");
+                //ent.ColorIndex = 1;
+                // ent.Visible = false;
+
+
+
+                vpinfo = CadHelper.GetViewInfo(vports, trx);
+
+                if (vpinfo != null)
+                {
+                    Log4NetHelper.WriteInfoLog("找到视口.");
+                    ed.SwitchToModelSpace();
+                    vpEnts = SelectEntitisInModelSpaceByViewport(
+                       acDoc, vpinfo.BoundaryInModelSpace, trx);
+                    ed.WriteMessage("\n{0} entit{1} found via Viewport \"{2}\"",
+                        vpEnts.Length,
+                        vpEnts.Length > 1 ? "ies" : "y",
+                        vpinfo.ViewportId.ToString());
+                    SqliteHelper.AddOrUpdateOneViewPortEntityIds((long)(vpinfo.ViewportId.OldIdPtr), vpEnts);
+
+                }
+                ed.SwitchToPaperSpace();
+
+                RXClass blockClass = RXClass.GetClass(typeof(BlockReference));
+                if (vpEnts != null && vpEnts.Length > 0)
+                {
+                    foreach (ObjectId vpentid in vpEnts)
+                    {
+
+                        if (vpentid.ObjectClass != blockClass)
+                        {
+                            vent = (Entity)trx.GetObject(vpentid, OpenMode.ForWrite);
+                            // Log4NetHelper.WriteInfoLog("实体的名字" +vent. +"\n");
+
+                            if (vent.ColorIndex == ent.ColorIndex)
+                            {
+                                vent.Visible = true;
+                            }
+                            else
+                                vent.Visible = false;
+                        }
+                        else
+                        {
+
+                            BlockReference blk = (BlockReference)trx.GetObject(vpentid, OpenMode.ForWrite);
+                             Log4NetHelper.WriteInfoLog("块" +blk.BlockName +"\n");
+                            if (blk.ColorIndex == ent.ColorIndex)
+                            {
+                                blk.Visible = true;
+                            }
+                            else
+                            {
+                                blk.Visible = false;
+                            }
+                        
+                        }
+                    }
+                }
+                trx.Commit();
+            }
+        }
+
+
+        [CommandMethod("qvdim", CommandFlags.NoTileMode)]
+
+        static public void NZ_qvdim()
         {
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
