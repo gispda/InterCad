@@ -9,15 +9,227 @@ using System.Runtime.InteropServices;
 using CadObjId = Autodesk.AutoCAD.DatabaseServices.ObjectId;
 using CadObjIdCollection = Autodesk.AutoCAD.DatabaseServices.ObjectIdCollection;
 using System.Collections.Concurrent;
+using InterDesignCad.Cmd;
 
 namespace InterDesignCad.Util
 {
+
+    /// <summary>
+    /// 标注类型
+    /// col 纵向
+    /// row 横向
+    /// intercircle内圆标注
+    /// outcircle外圆标注
+    /// </summary>
+    public enum DimType
+    {
+        col = 0,
+        row = 1,
+        intercircle = 2,
+        outcircle = 3
+    }
+    public class DimLine
+    {
+        /// <summary>
+        /// 标注时候，拉的直线与各个边界线的交点
+        /// </summary>
+        private Point3d m_intersectionpoint;
+
+        public Point3d IntersectionPoint
+        {
+            get { return m_intersectionpoint; }
+            set { m_intersectionpoint = value; }
+        }
+        /// <summary>
+        /// 边界线引出的标注线向量，以交点为开始点。
+        /// </summary>
+        private Vector3d m_dimlinevec;
+
+        public Vector3d DimlineVec
+        {
+            get { return m_dimlinevec; }
+            set { m_dimlinevec = value; }
+        }
+        
+        /// <summary>
+        /// 标注线与边界线的交点。 
+        /// </summary>
+        private Point3d m_pospnt;
+
+        public Point3d PosPnt
+        {
+            get { return m_pospnt; }
+            set { m_pospnt = value; }
+        }
+
+
+        /// <summary>
+        /// 拉的直线Objectid
+        /// </summary>
+        private ObjectId m_lineId;
+
+
+        public DimLine()
+        {
+            m_dimlinevec = new Vector3d();
+            m_intersectionpoint = new Point3d();
+            m_pospnt = new Point3d();
+        
+        }
+    }
+    /// <summary>
+    /// 布局空间的标注基本类
+    /// 包括有
+    /// 开始标注线方程（向量，和开始点) 和标注点
+    /// 结束标注线方程和标注点
+    /// 标注位置点
+    /// 
+    /// </summary>
+    public class VDimUnit
+    {
+
+
+        /// <summary>
+        /// 拉的直线Objectid
+        /// </summary>
+        private ObjectId m_lineId;
+
+        public ObjectId LineId
+        {
+            get { return m_lineId; }
+            set { m_lineId = value; }
+        }
+
+        private DimLine m_StartDimLine;
+
+        public DimLine StartDimLine
+        {
+            get { return m_StartDimLine; }
+            set { m_StartDimLine = value; }
+        }
+        private DimLine m_EndDimLine;
+
+        public DimLine EndDimLine
+        {
+            get { return m_EndDimLine; }
+            set { m_EndDimLine = value; }
+        }
+
+        public VDimUnit()
+        {
+
+            m_EndDimLine = new DimLine();
+            m_StartDimLine = new DimLine();
+
+        }
+    }
+
     internal static class SelectThroughViewport
     {
+
+       
         public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, string prompt)
         {
             return acadEditor.GetNestedEntityThroughViewport(new PromptNestedEntityThroughViewportOptions(prompt));
         }
+
+
+        public static PromptNestedEntityThroughViewportResult GetDimedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options, DimType dimtype,out Viewport viewport)
+        {
+            Document acadDocument = acadEditor.Document;
+            Database acadDatabase = acadDocument.Database;
+            LayoutManager layoutManager = LayoutManager.Current;
+
+
+
+
+
+            Point3d basepnt;
+            PromptPointResult res = acadEditor.GetPoint("开始拉线请先选择线开始点。");
+
+            if (res.Status != PromptStatus.OK)
+            {
+                viewport = null;
+                return null; ;
+            }
+            basepnt = res.Value;
+            if(basepnt==null)
+            {
+                viewport = null;
+                return null; ;
+            }
+
+            SelectDimViewportJig stvpJig = new SelectDimViewportJig(basepnt,options);
+
+            PromptResult pointResult = acadEditor.Drag(stvpJig);
+
+            if (pointResult.Status == PromptStatus.OK)
+            {
+                Point3d pickedPoint = stvpJig.Result.Value;
+
+                PromptNestedEntityOptions pneOpions = options.Options;
+                pneOpions.NonInteractivePickPoint = pickedPoint;
+                pneOpions.UseNonInteractivePickPoint = true;
+
+                PromptNestedEntityResult pickResult = acadEditor.GetNestedEntity(pneOpions);
+
+                if ((pickResult.Status == PromptStatus.OK) ||
+                    (acadDatabase.TileMode) ||
+                    (acadDatabase.PaperSpaceVportId != acadEditor.CurrentViewportObjectId))
+                {
+
+                    viewport = null;
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+                else
+                {
+                    SelectionFilter vportFilter = new SelectionFilter(new TypedValue[] { new TypedValue(0, "VIEWPORT"),
+                                                                                                 new TypedValue(-4, "!="),
+                                                                                                 new TypedValue(69, 1),
+                                                                                                 new TypedValue(410, layoutManager.CurrentLayout) });
+
+                    PromptSelectionResult vportResult = acadEditor.SelectAll(vportFilter);
+
+                    if (vportResult.Status == PromptStatus.OK)
+                    {
+                        using (Transaction trans = acadDocument.TransactionManager.StartTransaction())
+                        {
+                            foreach (ObjectId objectId in vportResult.Value.GetObjectIds())
+                            {
+                                viewport = (Viewport)trans.GetObject(objectId, OpenMode.ForRead, false, false);
+
+                                if (viewport.ContainsPoint(pickedPoint))
+                                {
+                                    pneOpions.NonInteractivePickPoint = TranslatePointPsToMs(viewport, pickedPoint);
+                                    pneOpions.UseNonInteractivePickPoint = true;
+
+                                    acadEditor.SwitchToModelSpace();
+
+                                    Application.SetSystemVariable("CVPORT", viewport.Number);
+
+                                    PromptNestedEntityResult pneResult = acadEditor.GetNestedEntity(pneOpions);
+
+                                    acadEditor.SwitchToPaperSpace();
+
+                                    if (pneResult.Status == PromptStatus.OK)
+                                    {
+                                        return new PromptNestedEntityThroughViewportResult(pneResult, objectId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    viewport = null;
+                    return new PromptNestedEntityThroughViewportResult(pickResult);
+                }
+            }
+            else
+            {
+                viewport = null;
+                return new PromptNestedEntityThroughViewportResult(pointResult);
+            }
+        }
+
 
         public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options, out Viewport viewport)
         {
@@ -226,6 +438,54 @@ namespace InterDesignCad.Util
 
             protected override bool WorldDraw(Autodesk.AutoCAD.GraphicsInterface.WorldDraw draw)
             {
+                return true;
+            }
+        }
+
+        private class SelectDimViewportJig : DrawJig
+        {
+            private PromptNestedEntityThroughViewportOptions options;
+
+            private static List<VDimUnit> vdimls = new List<VDimUnit>();
+            private Point3d m_basepnt;
+
+            public SelectDimViewportJig(Point3d basepnt,PromptNestedEntityThroughViewportOptions options)
+            {
+                this.options = options;
+                this.m_basepnt = basepnt;
+            }
+
+            public PromptPointResult Result { get; private set; }
+
+            protected override SamplerStatus Sampler(JigPrompts prompts)
+            {
+                JigPromptPointOptions jigOptions = new JigPromptPointOptions(options.Message);
+                jigOptions.Cursor = CursorType.EntitySelect;
+
+                Result = prompts.AcquirePoint(jigOptions);
+
+
+
+
+                if (Result.Status == PromptStatus.OK)
+                {
+                    return SamplerStatus.OK;
+                }
+                else if (Result.Status == PromptStatus.Cancel)
+                {
+                    return SamplerStatus.OK;
+                }
+
+                return SamplerStatus.NoChange;
+            }
+
+            protected override bool WorldDraw(Autodesk.AutoCAD.GraphicsInterface.WorldDraw draw)
+            {
+
+
+
+
+
                 return true;
             }
         }

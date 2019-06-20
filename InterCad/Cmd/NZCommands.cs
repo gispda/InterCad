@@ -10,6 +10,7 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using InterDesignCad.Util;
 using InterDesignCad.Db;
+
 using CadObjId = Autodesk.AutoCAD.DatabaseServices.ObjectId;
 using CadObjIdCollection = Autodesk.AutoCAD.DatabaseServices.ObjectIdCollection;
 
@@ -23,7 +24,7 @@ namespace InterDesignCad.Cmd
 
     public class NZCommands : IExtensionApplication
     {
-
+       
 
 #if AUTOCAD_NEWER_THAN_2012
     const String acedTransOwner = "accore.dll";
@@ -514,10 +515,10 @@ namespace InterDesignCad.Cmd
 
             Editor ed = acDoc.Editor;
 
-            var opt = new PromptNestedEntityThroughViewportOptions("选择实体.");
+            var opt = new PromptNestedEntityThroughViewportOptions("开始拉线选择标注边界线.");
             Viewport vports;
-
-            var res = SelectThroughViewport.GetNestedEntityThroughViewport(ed, opt, out vports);
+            DimType dimtype = DimType.row;
+            var res = SelectThroughViewport.GetDimedEntityThroughViewport(ed, opt, dimtype,out vports);
 
 
             if (res.Status != PromptStatus.OK)
