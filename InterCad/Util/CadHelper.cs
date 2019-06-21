@@ -50,7 +50,7 @@ namespace InterDesignCad.Util
             get { return m_dimlinevec; }
             set { m_dimlinevec = value; }
         }
-        
+
         /// <summary>
         /// 标注线与边界线的交点。 
         /// </summary>
@@ -74,7 +74,7 @@ namespace InterDesignCad.Util
             m_dimlinevec = new Vector3d();
             m_intersectionpoint = new Point3d();
             m_pospnt = new Point3d();
-        
+
         }
     }
     /// <summary>
@@ -127,14 +127,14 @@ namespace InterDesignCad.Util
     internal static class SelectThroughViewport
     {
 
-       
+
         public static PromptNestedEntityThroughViewportResult GetNestedEntityThroughViewport(this Editor acadEditor, string prompt)
         {
             return acadEditor.GetNestedEntityThroughViewport(new PromptNestedEntityThroughViewportOptions(prompt));
         }
 
 
-        public static PromptNestedEntityThroughViewportResult GetDimedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options, DimType dimtype,out Viewport viewport)
+        public static PromptNestedEntityThroughViewportResult GetDimedEntityThroughViewport(this Editor acadEditor, PromptNestedEntityThroughViewportOptions options, DimType dimtype, out Viewport viewport)
         {
             Document acadDocument = acadEditor.Document;
             Database acadDatabase = acadDocument.Database;
@@ -153,13 +153,13 @@ namespace InterDesignCad.Util
                 return null; ;
             }
             basepnt = res.Value;
-            if(basepnt==null)
+            if (basepnt == null)
             {
                 viewport = null;
                 return null; ;
             }
 
-            SelectDimViewportJig stvpJig = new SelectDimViewportJig(basepnt,options);
+            SelectDimViewportJig stvpJig = new SelectDimViewportJig(basepnt, options);
 
             PromptResult pointResult = acadEditor.Drag(stvpJig);
 
@@ -447,12 +447,42 @@ namespace InterDesignCad.Util
             private PromptNestedEntityThroughViewportOptions options;
 
             private static List<VDimUnit> vdimls = new List<VDimUnit>();
-            private Point3d m_basepnt;
 
-            public SelectDimViewportJig(Point3d basepnt,PromptNestedEntityThroughViewportOptions options)
+            public static List<VDimUnit> VDimls
+            {
+                get { return SelectDimViewportJig.vdimls; }
+                set { SelectDimViewportJig.vdimls = value; }
+            }
+
+            /// <summary>
+            /// 拉的直线起点
+            /// </summary>
+            private Point3d m_dimlinestartpnt;
+
+            public Point3d DimlineStartPnt
+            {
+                get { return m_dimlinestartpnt; }
+                set { m_dimlinestartpnt = value; }
+            }
+
+            /// <summary>
+            /// 拉直线终点
+            /// </summary>
+            private Point3d m_dimlineendpnt;
+
+            public Point3d DimlineEndPnt
+            {
+                get { return m_dimlineendpnt; }
+                set { m_dimlineendpnt = value; }
+            }
+
+
+
+            public SelectDimViewportJig(Point3d basepnt, PromptNestedEntityThroughViewportOptions options)
             {
                 this.options = options;
-                this.m_basepnt = basepnt;
+                this.m_dimlinestartpnt = basepnt;
+                this.m_dimlineendpnt = basepnt;
             }
 
             public PromptPointResult Result { get; private set; }
@@ -469,6 +499,11 @@ namespace InterDesignCad.Util
 
                 if (Result.Status == PromptStatus.OK)
                 {
+                    if (Result.Value == m_dimlineendpnt)
+                    {
+                        return SamplerStatus.NoChange;
+                    }
+                    m_dimlineendpnt = Result.Value;
                     return SamplerStatus.OK;
                 }
                 else if (Result.Status == PromptStatus.Cancel)
@@ -479,6 +514,12 @@ namespace InterDesignCad.Util
                 return SamplerStatus.NoChange;
             }
 
+
+            /// <summary>
+            /// 绘制拉的直线，如果可能，可以绘制与几个边界线的交点
+            /// </summary>
+            /// <param name="draw"></param>
+            /// <returns></returns>
             protected override bool WorldDraw(Autodesk.AutoCAD.GraphicsInterface.WorldDraw draw)
             {
 
@@ -764,8 +805,8 @@ namespace InterDesignCad.Util
         public static void AddOneViewPortEntityIds(CadObjId vportnum, CadObjId[] pentityls)
         {
             penmap.TryAdd(vportnum, pentityls);
-            
-           
+
+
         }
         public static CadObjId[] GetViewPortEntityIds(CadObjId vportnum)
         {
@@ -798,7 +839,7 @@ namespace InterDesignCad.Util
 
             if (vport == null)
             {
-                Log4NetHelper.WriteInfoLog("视口放大太小，请放大到全视口选择实体。\n");                
+                Log4NetHelper.WriteInfoLog("视口放大太小，请放大到全视口选择实体。\n");
                 return null;
             }
             Log4NetHelper.WriteInfoLog("视口的数字" + vport.Number + "\n");
