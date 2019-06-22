@@ -159,7 +159,7 @@ namespace InterDesignCad.Util
                 return null; ;
             }
 
-            SelectDimViewportJig stvpJig = new SelectDimViewportJig(basepnt, options);
+            SelectDimViewportJig stvpJig = new SelectDimViewportJig(acadEditor,basepnt, options);
 
             PromptResult pointResult = acadEditor.Drag(stvpJig);
 
@@ -444,6 +444,7 @@ namespace InterDesignCad.Util
 
         private class SelectDimViewportJig : DrawJig
         {
+            private static Editor m_cadEditor;
             private PromptNestedEntityThroughViewportOptions options;
 
             private static List<VDimUnit> vdimls = new List<VDimUnit>();
@@ -478,8 +479,10 @@ namespace InterDesignCad.Util
 
 
 
-            public SelectDimViewportJig(Point3d basepnt, PromptNestedEntityThroughViewportOptions options)
+            public SelectDimViewportJig(Editor acadEditor,Point3d basepnt, PromptNestedEntityThroughViewportOptions options)
             {
+
+                SelectDimViewportJig.m_cadEditor = acadEditor;
                 this.options = options;
                 this.m_dimlinestartpnt = basepnt;
                 this.m_dimlineendpnt = basepnt;
@@ -523,7 +526,8 @@ namespace InterDesignCad.Util
             protected override bool WorldDraw(Autodesk.AutoCAD.GraphicsInterface.WorldDraw draw)
             {
 
-
+                Document acadDocument = m_cadEditor.Document;
+                Database acadDatabase = acadDocument.Database;
 
 
 
